@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Language, PilgrimProfile } from './types';
 import { TRANSLATIONS, DEFAULT_PROFILE } from './constants';
@@ -39,7 +38,7 @@ const App: React.FC = () => {
 
   const handleShareLocation = () => {
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((position) => {
+      navigator.geolocation.getCurrentPosition(() => {
         setShowLocationAlert(true);
         setTimeout(() => setShowLocationAlert(false), 3000);
       });
@@ -58,12 +57,20 @@ const App: React.FC = () => {
         console.log("Error sharing:", err);
       }
     } else {
-      setShowQr(true); // Fallback to QR if native share isn't available
+      setShowQr(true);
     }
   };
 
+  // ✅ اتصال الحملة
   const handleEmergencyCall = () => {
+    if (!profile.emergencyPhone) return;
     window.location.href = `tel:${profile.emergencyPhone}`;
+  };
+
+  // ✅ اتصال الهلال الأحمر
+  const handleRedCrescentCall = () => {
+    if (!profile.redCrescentPhone) return;
+    window.location.href = `tel:${profile.redCrescentPhone}`;
   };
 
   return (
@@ -79,14 +86,16 @@ const App: React.FC = () => {
             </div>
             <div>
               <h1 className="text-lg font-extrabold text-gray-800 leading-none">{t.title}</h1>
-              <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-bold">Health ID: {profile.id}</p>
+              <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-bold">
+                Health ID: {profile.id}
+              </p>
             </div>
           </div>
-          
+
           <div className="flex gap-2">
             {isAuthenticated && (
               <>
-                <button 
+                <button
                   onClick={handleNativeShare}
                   className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all border border-blue-100"
                   title="Share Link"
@@ -95,7 +104,8 @@ const App: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6a3 3 0 100-2.684m0 2.684l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
                 </button>
-                <button 
+
+                <button
                   onClick={() => setShowQr(true)}
                   className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all border border-emerald-100"
                   title="Show QR Code"
@@ -106,8 +116,9 @@ const App: React.FC = () => {
                 </button>
               </>
             )}
+
             {isAuthenticated && !isEditMode && (
-              <button 
+              <button
                 onClick={() => setIsEditMode(true)}
                 className="p-2.5 bg-gray-50 text-gray-600 rounded-xl hover:bg-gray-100 transition-all border border-gray-100"
               >
@@ -124,25 +135,25 @@ const App: React.FC = () => {
         {!isEditMode && <LanguageSwitcher currentLang={lang} onLanguageChange={setLang} />}
 
         {!isAuthenticated ? (
-          <SecurityGate 
-            correctCode={profile.securityCode} 
-            onSuccess={() => setIsAuthenticated(true)} 
+          <SecurityGate
+            correctCode={profile.securityCode}
+            onSuccess={() => setIsAuthenticated(true)}
             t={t}
             isRtl={isRtl}
           />
         ) : isEditMode ? (
-          <EditProfile 
-            profile={profile} 
-            onSave={saveProfile} 
-            onCancel={() => setIsEditMode(false)} 
-            t={t} 
-            isRtl={isRtl} 
+          <EditProfile
+            profile={profile}
+            onSave={saveProfile}
+            onCancel={() => setIsEditMode(false)}
+            t={t}
+            isRtl={isRtl}
           />
         ) : (
-          <ProfileView 
-            profile={profile} 
-            t={t} 
-            isRtl={isRtl} 
+          <ProfileView
+            profile={profile}
+            t={t}
+            isRtl={isRtl}
             currentLang={lang}
           />
         )}
@@ -151,10 +162,11 @@ const App: React.FC = () => {
       {/* Floating Action Buttons */}
       {isAuthenticated && !isEditMode && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-gray-100 p-4 shadow-2xl z-40">
-          <div className="max-w-2xl mx-auto grid grid-cols-2 gap-4">
+          {/* ✅ الاقتراح: 3 أزرار واضحة (موقع / حملة / هلال) */}
+          <div className="max-w-2xl mx-auto grid grid-cols-3 gap-3">
             <button
               onClick={handleShareLocation}
-              className="flex items-center justify-center gap-3 bg-slate-800 text-white py-4 rounded-2xl font-bold text-sm hover:bg-slate-900 active:scale-95 transition-all shadow-xl shadow-slate-200"
+              className="flex items-center justify-center gap-2 bg-slate-800 text-white py-4 rounded-2xl font-bold text-sm hover:bg-slate-900 active:scale-95 transition-all shadow-xl shadow-slate-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -162,25 +174,43 @@ const App: React.FC = () => {
               </svg>
               {t.shareLocation}
             </button>
+
             <button
               onClick={handleEmergencyCall}
-              className="flex items-center justify-center gap-3 bg-red-600 text-white py-4 rounded-2xl font-bold text-sm hover:bg-red-700 active:scale-95 transition-all shadow-xl shadow-red-200"
+              className="flex items-center justify-center gap-2 bg-red-600 text-white py-4 rounded-2xl font-bold text-sm hover:bg-red-700 active:scale-95 transition-all shadow-xl shadow-red-200"
+              title="اتصال الحملة"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-              {t.callEmergency}
+              الحملة
+            </button>
+
+            <button
+              onClick={handleRedCrescentCall}
+              disabled={!profile.redCrescentPhone}
+              className={`flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm active:scale-95 transition-all shadow-xl
+                ${profile.redCrescentPhone
+                  ? 'bg-red-700 text-white hover:bg-red-800 shadow-red-200'
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed shadow-gray-100'
+                }`}
+              title="اتصال الهلال الأحمر"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              الهلال
             </button>
           </div>
         </div>
       )}
 
       {showQr && (
-        <QrModal 
-          profileId={profile.id} 
-          onClose={() => setShowQr(false)} 
-          t={t} 
-          isRtl={isRtl} 
+        <QrModal
+          profileId={profile.id}
+          onClose={() => setShowQr(false)}
+          t={t}
+          isRtl={isRtl}
         />
       )}
 

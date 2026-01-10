@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PilgrimProfile, TranslationSet, Language } from '../types';
 import { getEmergencyBrief } from '../services/geminiService';
 
@@ -14,6 +13,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
   const [aiSummary, setAiSummary] = useState<string>("");
   const [loadingAi, setLoadingAi] = useState(false);
 
+  // NEW: modal state for history
+  const [openModal, setOpenModal] = useState<null | 'sugar' | 'bp'>(null);
+
   useEffect(() => {
     const fetchSummary = async () => {
       setLoadingAi(true);
@@ -23,6 +25,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
     };
     fetchSummary();
   }, [profile, currentLang]);
+
+  const formatDateTime = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString();
+    } catch {
+      return iso;
+    }
+  };
+
+  // NEW: latest readings (sorted by measuredAt desc)
+  const latestSugar = useMemo(() => {
+    const arr = profile.vitalSigns.bloodSugarReadings ?? [];
+    if (!arr.length) return null;
+    return arr.slice().sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime())[0];
+  }, [profile.vitalSigns.bloodSugarReadings]);
+
+  const latestBp = useMemo(() => {
+    const arr = profile.vitalSigns.bloodPressureReadings ?? [];
+    if (!arr.length) return null;
+    return arr.slice().sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime())[0];
+  }, [profile.vitalSigns.bloodPressureReadings]);
 
   const Section = ({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-4">
@@ -51,6 +75,72 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
     </div>
   );
 
+  // NEW: reusable modal
+  const HistoryModal = () => {
+    if (!openModal) return null;
+
+    const sugarList = (profile.vitalSigns.bloodSugarReadings ?? [])
+      .slice()
+      .sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime());
+
+    const bpList = (profile.vitalSigns.bloodPressureReadings ?? [])
+      .slice()
+      .sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime());
+
+    const isSugar = openModal === 'sugar';
+
+    return (
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4">
+        <div className="bg-white rounded-2xl w-full max-w-md p-4 shadow-2xl">
+          <div className={`flex justify-between items-center mb-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <h3 className="font-extrabold">
+              {isSugar ? t.bloodSugar : t.bloodPressure}
+            </h3>
+            <button
+              onClick={() => setOpenModal(null)}
+              className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700"
+            >
+              {t.close}
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-[60vh] overflow-auto">
+            {isSugar ? (
+              sugarList.length ? (
+                sugarList.map((r, i) => (
+                  <div key={i} className="border border-gray-100 rounded-xl p-3">
+                    <div className={`flex justify-between items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
+                      <div className="font-bold">{r.value} {r.unit}</div>
+                      <div className="text-xs text-gray-500">{formatDateTime(r.measuredAt)}</div>
+                    </div>
+                    {r.note && <div className="text-xs text-gray-600 mt-1">{r.note}</div>}
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500">لا توجد قراءات سكر</div>
+              )
+            ) : (
+              bpList.length ? (
+                bpList.map((r, i) => (
+                  <div key={i} className="border border-gray-100 rounded-xl p-3">
+                    <div className={`flex justify-between items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
+                     <div className="font-bold">{r.systolic}/{r.diastolic} mmHg</div>
+                      <div className="text-xs text-gray-500">{formatDateTime(r.measuredAt)}</div>
+                    </div>
+                    {r.pulse != null && <div className="text-xs text-gray-600 mt-1">Pulse: {r.pulse}</div>}
+                    {r.note && <div className="text-xs text-gray-600 mt-1">{r.note}</div>}
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500">لا توجد قراءات ضغط</div>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`pb-24 ${isRtl ? 'rtl' : ''}`}>
       {/* Critical Alert Area (AI Summary) */}
@@ -71,13 +161,55 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
           <DataRow label="Name" value={profile.fullName} />
           <DataRow label="ID / Passport" value={profile.passportId} />
           <DataRow label="Nationality" value={profile.nationality} />
+          <DataRow label="Height" value={profile.heightCm != null ? `${profile.heightCm} cm` : '—'} />
+<DataRow label="Weight" value={profile.weightKg != null ? `${profile.weightKg} kg` : '—'} />
+<DataRow label="BMI" value={profile.bmi != null ? String(profile.bmi) : '—'} />
+<DataRow
+  label="Date of Birth"
+  value={profile.dateOfBirth ? profile.dateOfBirth : '—'}
+/>
+
+<DataRow
+  label="Age"
+  value={profile.ageYears != null ? `${profile.ageYears} years` : '—'}
+/>
+
         </Section>
 
         <Section title={t.vitalSigns} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}>
           <div className="grid grid-cols-2 gap-4">
             <DataRow label={t.bloodType} value={profile.vitalSigns.bloodType} badge />
-            <DataRow label={t.bloodPressure} value={profile.vitalSigns.bloodPressure} />
-            <DataRow label={t.bloodSugar} value={profile.vitalSigns.bloodSugar} />
+
+            {/* Blood Pressure clickable */}
+            <button
+              type="button"
+              onClick={() => setOpenModal('bp')}
+              className={`text-left ${isRtl ? 'text-right' : ''}`}
+            >
+              <div className="rounded-xl border border-gray-100 p-3 bg-gray-50 hover:bg-gray-100 transition">
+                <span className="text-xs text-gray-400 uppercase font-semibold block">{t.bloodPressure}</span>
+                <span className="text-gray-800 font-medium block mt-1">
+                  {latestBp ? `${latestBp.systolic}/${latestBp.diastolic} mmHg` : '—'}
+
+                </span>
+                <span className="text-[10px] text-gray-400 mt-1 block">Tap to view history</span>
+              </div>
+            </button>
+
+            {/* Blood Sugar clickable */}
+            <button
+              type="button"
+              onClick={() => setOpenModal('sugar')}
+              className={`text-left ${isRtl ? 'text-right' : ''}`}
+            >
+              <div className="rounded-xl border border-gray-100 p-3 bg-gray-50 hover:bg-gray-100 transition">
+                <span className="text-xs text-gray-400 uppercase font-semibold block">{t.bloodSugar}</span>
+                <span className="text-gray-800 font-medium block mt-1">
+                  {latestSugar ? `${latestSugar.value} ${latestSugar.unit}` : '—'}
+                </span>
+                <span className="text-[10px] text-gray-400 mt-1 block">Tap to view history</span>
+              </div>
+            </button>
           </div>
         </Section>
 
@@ -98,12 +230,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
       </div>
 
       <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col items-center gap-3 mt-4">
-        <h4 className="font-bold text-emerald-800">{t.emergencyContact}</h4>
-        <div className="text-center">
-          <p className="text-gray-700 font-medium">{profile.emergencyContactName}</p>
-          <p className="text-emerald-600 text-lg font-bold">{profile.emergencyPhone}</p>
-        </div>
-      </div>
+  <h4 className="font-bold text-emerald-800">{t.emergencyContact}</h4>
+
+  <div className="text-center space-y-2">
+    <p className="text-gray-700 font-medium">{profile.emergencyContactName}</p>
+
+    <div>
+      <p className="text-[11px] text-gray-500 font-bold">رقم الحملة</p>
+      <p className="text-emerald-700 text-lg font-extrabold">{profile.emergencyPhone}</p>
+    </div>
+
+    <div>
+      <p className="text-[11px] text-gray-500 font-bold">رقم الهلال الأحمر</p>
+      <p className="text-red-700 text-lg font-extrabold">
+        {profile.redCrescentPhone ? profile.redCrescentPhone : '—'}
+      </p>
+    </div>
+  </div>
+</div>
+
+
+      {/* NEW: history modal */}
+      <HistoryModal />
     </div>
   );
 };

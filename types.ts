@@ -1,4 +1,3 @@
-
 export enum Language {
   AR = 'ar',
   EN = 'en',
@@ -12,11 +11,29 @@ export interface Medication {
   frequency: string;
 }
 
+/** NEW: Reading history types */
+export interface BloodSugarReading {
+  value: number;
+  unit: 'mg/dL' | 'mmol/L';
+  measuredAt: string; // ISO datetime e.g. 2026-01-10T03:20:00
+  note?: string;
+}
+
+export interface BloodPressureReading {
+  systolic: number;
+  diastolic: number;
+  measuredAt: string; // ISO datetime
+  pulse?: number;
+  note?: string;
+}
+
+/** UPDATED: Vital signs now store multiple readings with date/time */
 export interface VitalSigns {
-  bloodSugar: string;
-  bloodPressure: string;
   bloodType: string;
   lastUpdated: string;
+
+  bloodSugarReadings: BloodSugarReading[];
+  bloodPressureReadings: BloodPressureReading[];
 }
 
 export interface MedicalHistory {
@@ -31,8 +48,18 @@ export interface PilgrimProfile {
   nationality: string;
   nativeLanguage: string;
   passportId: string;
-  emergencyContactName: string;
-  emergencyPhone: string;
+  emergencyContactName: string;      // اسم مرافق / مسؤول الحملة
+emergencyPhone: string;            // رقم الحملة
+redCrescentPhone?: string;         // رقم الهلال الأحمر
+
+    // ✅ NEW
+  heightCm?: number;   // الطول بالسنتيمتر
+  weightKg?: number;   // الوزن بالكيلو
+  bmi?: number;        // يتم حسابه تلقائياً
+    // ✅ NEW
+  dateOfBirth?: string; // ISO مثل: "1998-05-21"
+  ageYears?: number;    // اختياري (نحسبه تلقائيًا)
+
   medicalHistory: MedicalHistory;
   medicationHistory: Medication[];
   vitalSigns: VitalSigns;

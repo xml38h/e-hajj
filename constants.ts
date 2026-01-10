@@ -125,10 +125,11 @@ export const DEFAULT_PROFILE: PilgrimProfile = {
   medicationHistory: [
     { name: "منظم سكر", dosage: "500ملجم", frequency: "مرتين يومياً" }
   ],
-  vitalSigns: {
-    bloodSugar: "140 mg/dL",
-    bloodPressure: "120/80 mmHg",
-    bloodType: "O+",
-    lastUpdated: new Date().toLocaleString()
-  }
-};
+ vitalSigns: {
+  bloodType: "O+",
+  lastUpdated: new Date().toISOString(),
+  bloodSugarReadings: [],
+  bloodPressureReadings: [],
+},
+
+}
