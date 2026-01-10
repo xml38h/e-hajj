@@ -9,6 +9,33 @@ interface ProfileViewProps {
   currentLang: Language;
 }
 
+/** ✅ helper: convert to string[] safely */
+function toStringArray(v: any): string[] {
+  if (Array.isArray(v)) return v.filter(Boolean).map((x) => String(x).trim()).filter(Boolean);
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return [];
+    // لو كان مفصول بفواصل
+    if (s.includes(',')) return s.split(',').map((x) => x.trim()).filter(Boolean);
+    return [s];
+  }
+  return [];
+}
+
+/** ✅ small chip UI */
+const Chip: React.FC<{ text: string; tone?: 'normal' | 'danger' }> = ({ text, tone = 'normal' }) => (
+  <span
+    className={[
+      'text-sm px-2 py-0.5 rounded border font-medium',
+      tone === 'danger'
+        ? 'bg-red-50 text-red-700 border-red-100'
+        : 'bg-gray-100 text-gray-700 border-gray-200',
+    ].join(' ')}
+  >
+    {text}
+  </span>
+);
+
 const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLang }) => {
   const [aiSummary, setAiSummary] = useState<string>("");
   const [loadingAi, setLoadingAi] = useState(false);
@@ -39,16 +66,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
   const latestSugar = useMemo(() => {
     const arr = profile.vitalSigns.bloodSugarReadings ?? [];
     if (!arr.length) return null;
-    return arr.slice().sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime())[0];
+    return arr
+      .slice()
+      .sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime())[0];
   }, [profile.vitalSigns.bloodSugarReadings]);
 
   const latestBp = useMemo(() => {
     const arr = profile.vitalSigns.bloodPressureReadings ?? [];
     if (!arr.length) return null;
-    return arr.slice().sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime())[0];
+    return arr
+      .slice()
+      .sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime())[0];
   }, [profile.vitalSigns.bloodPressureReadings]);
 
-  const Section = ({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) => (
+  const Section = ({
+    title,
+    icon,
+    children,
+  }: {
+    title: string;
+    icon: React.ReactNode;
+    children: React.ReactNode;
+  }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-4">
       <div className={`flex items-center gap-2 mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
         <div className="text-emerald-600">{icon}</div>
@@ -58,22 +97,55 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
     </div>
   );
 
-  const DataRow = ({ label, value, badge = false }: { label: string, value: string | string[], badge?: boolean }) => (
+  const DataRow = ({
+    label,
+    value,
+    badge = false,
+  }: {
+    label: string;
+    value: string | string[];
+    badge?: boolean;
+  }) => (
     <div className={`flex flex-col ${isRtl ? 'items-end text-right' : 'items-start text-left'}`}>
       <span className="text-xs text-gray-400 uppercase font-semibold">{label}</span>
+
       {Array.isArray(value) ? (
-        <div className={`flex flex-wrap gap-1 mt-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-          {value.map((v, i) => (
-            <span key={i} className={`text-sm px-2 py-0.5 rounded ${badge ? 'bg-red-50 text-red-600 border border-red-100 font-medium' : 'bg-gray-100 text-gray-700'}`}>
-              {v}
-            </span>
-          ))}
-        </div>
+        value.length ? (
+          <div className={`flex flex-wrap gap-1 mt-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            {value.map((v, i) => (
+              <span key={i}>
+                <Chip text={v} tone={badge ? 'danger' : 'normal'} />
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-gray-400 font-medium">—</span>
+        )
       ) : (
-        <span className={`text-gray-800 font-medium ${badge ? 'text-lg text-emerald-700' : ''}`}>{value}</span>
+        <span className={`text-gray-800 font-medium ${badge ? 'text-lg text-emerald-700' : ''}`}>
+          {value && value.trim() ? value : '—'}
+        </span>
       )}
     </div>
   );
+
+  // ✅ normalize medical arrays (so it works even لو كانت string)
+  const chronicList = toStringArray((profile as any)?.medicalHistory?.chronicDiseases);
+  const allergyList = toStringArray((profile as any)?.medicalHistory?.allergies);
+  const surgeryList = toStringArray((profile as any)?.medicalHistory?.previousSurgeries);
+
+  // ✅ normalize medicationHistory safely
+  const medsList: Array<{ name: string; dosage: string; frequency: string }> = useMemo(() => {
+    const raw = (profile as any)?.medicationHistory;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((m: any) => ({
+        name: String(m?.name ?? '').trim(),
+        dosage: String(m?.dosage ?? '').trim(),
+        frequency: String(m?.frequency ?? '').trim(),
+      }))
+      .filter((m) => (m.name + m.dosage + m.frequency).trim() !== '');
+  }, [profile]);
 
   // NEW: reusable modal
   const HistoryModal = () => {
@@ -93,9 +165,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
       <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4">
         <div className="bg-white rounded-2xl w-full max-w-md p-4 shadow-2xl">
           <div className={`flex justify-between items-center mb-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-            <h3 className="font-extrabold">
-              {isSugar ? t.bloodSugar : t.bloodPressure}
-            </h3>
+            <h3 className="font-extrabold">{isSugar ? t.bloodSugar : t.bloodPressure}</h3>
             <button
               onClick={() => setOpenModal(null)}
               className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700"
@@ -110,7 +180,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
                 sugarList.map((r, i) => (
                   <div key={i} className="border border-gray-100 rounded-xl p-3">
                     <div className={`flex justify-between items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
-                      <div className="font-bold">{r.value} {r.unit}</div>
+                      <div className="font-bold">
+                        {r.value} {r.unit}
+                      </div>
                       <div className="text-xs text-gray-500">{formatDateTime(r.measuredAt)}</div>
                     </div>
                     {r.note && <div className="text-xs text-gray-600 mt-1">{r.note}</div>}
@@ -119,21 +191,21 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
               ) : (
                 <div className="text-sm text-gray-500">لا توجد قراءات سكر</div>
               )
-            ) : (
-              bpList.length ? (
-                bpList.map((r, i) => (
-                  <div key={i} className="border border-gray-100 rounded-xl p-3">
-                    <div className={`flex justify-between items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
-                     <div className="font-bold">{r.systolic}/{r.diastolic} mmHg</div>
-                      <div className="text-xs text-gray-500">{formatDateTime(r.measuredAt)}</div>
+            ) : bpList.length ? (
+              bpList.map((r, i) => (
+                <div key={i} className="border border-gray-100 rounded-xl p-3">
+                  <div className={`flex justify-between items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <div className="font-bold">
+                      {r.systolic}/{r.diastolic} mmHg
                     </div>
-                    {r.pulse != null && <div className="text-xs text-gray-600 mt-1">Pulse: {r.pulse}</div>}
-                    {r.note && <div className="text-xs text-gray-600 mt-1">{r.note}</div>}
+                    <div className="text-xs text-gray-500">{formatDateTime(r.measuredAt)}</div>
                   </div>
-                ))
-              ) : (
-                <div className="text-sm text-gray-500">لا توجد قراءات ضغط</div>
-              )
+                  {r.pulse != null && <div className="text-xs text-gray-600 mt-1">Pulse: {r.pulse}</div>}
+                  {r.note && <div className="text-xs text-gray-600 mt-1">{r.note}</div>}
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-gray-500">لا توجد قراءات ضغط</div>
             )}
           </div>
         </div>
@@ -147,40 +219,68 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
       <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6 rounded-r-xl">
         <div className={`flex items-center gap-2 mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
           <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clipRule="evenodd"
+            />
           </svg>
           <span className="font-bold text-amber-800 text-sm">Emergency Summary (AI)</span>
         </div>
         <p className="text-sm text-amber-900 leading-relaxed italic">
-          {loadingAi ? "Analyzing medical data..." : aiSummary}
+          {loadingAi ? 'Analyzing medical data...' : aiSummary}
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Section title={t.personalData} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}>
-          <DataRow label="Name" value={profile.fullName} />
-          <DataRow label="ID / Passport" value={profile.passportId} />
-          <DataRow label="Nationality" value={profile.nationality} />
-          <DataRow label="Height" value={profile.heightCm != null ? `${profile.heightCm} cm` : '—'} />
+        {/* ✅ Demographics: DOB + Age تحت الهوية */}
+        <Section
+          title={t.personalData}
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              />
+            </svg>
+          }
+        >
+         <DataRow label="Name" value={profile.fullName} />
+<DataRow label="ID / Passport" value={profile.passportId} />
+<DataRow label="Nationality" value={profile.nationality} />
+
+<DataRow label="Date of Birth" value={profile.dateOfBirth ? profile.dateOfBirth : '—'} />
+<DataRow label="Age" value={profile.ageYears != null ? `${profile.ageYears} years` : '—'} />
+
+<DataRow label="Height" value={profile.heightCm != null ? `${profile.heightCm} cm` : '—'} />
 <DataRow label="Weight" value={profile.weightKg != null ? `${profile.weightKg} kg` : '—'} />
 <DataRow label="BMI" value={profile.bmi != null ? String(profile.bmi) : '—'} />
-<DataRow
-  label="Date of Birth"
-  value={profile.dateOfBirth ? profile.dateOfBirth : '—'}
-/>
+</Section>
 
-<DataRow
-  label="Age"
-  value={profile.ageYears != null ? `${profile.ageYears} years` : '—'}
-/>
-
-        </Section>
-
-        <Section title={t.vitalSigns} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}>
+        {/* ✅ Vital: الضغط جنب السكر */}
+        <Section
+          title={t.vitalSigns}
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+          }
+        >
+          {/* ✅ صف 1: Blood Type + فراغ (عشان يبقى كرت واحد فوق) */}
           <div className="grid grid-cols-2 gap-4">
-            <DataRow label={t.bloodType} value={profile.vitalSigns.bloodType} badge />
+            <DataRow label={t.bloodType} value={profile.vitalSigns.bloodType}  />
+            <div /> {/* spacer */}
+          </div>
 
-            {/* Blood Pressure clickable */}
+          {/* ✅ صف 2: Pressure + Sugar جنب بعض */}
+          <div className="grid grid-cols-2 gap-4 mt-3">
             <button
               type="button"
               onClick={() => setOpenModal('bp')}
@@ -190,13 +290,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
                 <span className="text-xs text-gray-400 uppercase font-semibold block">{t.bloodPressure}</span>
                 <span className="text-gray-800 font-medium block mt-1">
                   {latestBp ? `${latestBp.systolic}/${latestBp.diastolic} mmHg` : '—'}
-
                 </span>
                 <span className="text-[10px] text-gray-400 mt-1 block">Tap to view history</span>
               </div>
             </button>
 
-            {/* Blood Sugar clickable */}
             <button
               type="button"
               onClick={() => setOpenModal('sugar')}
@@ -213,42 +311,86 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
           </div>
         </Section>
 
-        <Section title={t.medicalHistory} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.675.337a4 4 0 01-2.574.345l-1.311-.262a2 2 0 00-1.01.033L4 16.188V21h4.166l1.073-1.073a2 2 0 00.586-1.414V17a2 2 0 114 0v1.514a2 2 0 00.586 1.414L15.414 21H20v-4.572l-.572-.572z" /></svg>}>
-          <DataRow label={t.chronicDiseases} value={profile.medicalHistory.chronicDiseases} />
-          <DataRow label={t.allergies} value={profile.medicalHistory.allergies} badge />
-          <DataRow label={t.surgeries} value={profile.medicalHistory.previousSurgeries} />
+        <Section
+          title={t.medicalHistory}
+          icon={
+           <svg
+      className="w-5 h-5 text-emerald-600"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M9 5h6a2 2 0 012 2v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7a2 2 0 012-2z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M9 3h6v4H9z" />
+            </svg>
+          }
+        >
+          <DataRow label={t.chronicDiseases} value={chronicList} />
+          <DataRow label={t.allergies} value={allergyList} badge />
+          <DataRow label={t.surgeries} value={surgeryList} />
         </Section>
 
-        <Section title={t.medications} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.675.337a4 4 0 01-2.574.345l-1.311-.262a2 2 0 00-1.01.033L4 16.188V21h4.166l1.073-1.073a2 2 0 00.586-1.414V17a2 2 0 114 0v1.514a2 2 0 00.586 1.414L15.414 21H20v-4.572l-.572-.572z" /></svg>}>
-          {profile.medicationHistory.map((m, i) => (
-            <div key={i} className="bg-gray-50 p-2 rounded flex justify-between items-center text-sm">
-              <span className="font-bold text-gray-700">{m.name}</span>
-              <span className="text-gray-500">{m.dosage} - {m.frequency}</span>
-            </div>
-          ))}
+        <Section
+          title={t.medications}
+          icon={
+             <svg
+      className="w-5 h-5 text-emerald-600"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+    d="M10.9 6.5l7 7m-8.25-5.75l5.5-4.5a4 4 0 015.657 8.667l-5.5 5.5a4 4 0 01-5.657-9.157z"
+     />
+            </svg>
+          }
+        >
+          {medsList.length ? (
+            medsList.map((m, i) => (
+              <div key={i} className="bg-gray-50 p-2 rounded flex justify-between items-center text-sm">
+                <span className="font-bold text-gray-700">{m.name || '—'}</span>
+                <span className="text-gray-500">
+                  {(m.dosage || '—')} - {(m.frequency || '—')}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-sm text-gray-500">—</div>
+          )}
         </Section>
       </div>
 
       <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col items-center gap-3 mt-4">
-  <h4 className="font-bold text-emerald-800">{t.emergencyContact}</h4>
+        <h4 className="font-bold text-emerald-800">{t.emergencyContact}</h4>
 
-  <div className="text-center space-y-2">
-    <p className="text-gray-700 font-medium">{profile.emergencyContactName}</p>
+        <div className="text-center space-y-2">
+          <p className="text-gray-700 font-medium">{profile.emergencyContactName}</p>
 
-    <div>
-      <p className="text-[11px] text-gray-500 font-bold">رقم الحملة</p>
-      <p className="text-emerald-700 text-lg font-extrabold">{profile.emergencyPhone}</p>
-    </div>
+          <div>
+            <p className="text-[11px] text-gray-500 font-bold">رقم الحملة</p>
+            <p className="text-emerald-700 text-lg font-extrabold">{profile.emergencyPhone}</p>
+          </div>
 
-    <div>
-      <p className="text-[11px] text-gray-500 font-bold">رقم الهلال الأحمر</p>
-      <p className="text-red-700 text-lg font-extrabold">
-        {profile.redCrescentPhone ? profile.redCrescentPhone : '—'}
-      </p>
-    </div>
-  </div>
-</div>
-
+          <div>
+            <p className="text-[11px] text-gray-500 font-bold">رقم الهلال الأحمر</p>
+            <p className="text-red-700 text-lg font-extrabold">
+              {profile.redCrescentPhone ? profile.redCrescentPhone : '—'}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* NEW: history modal */}
       <HistoryModal />
