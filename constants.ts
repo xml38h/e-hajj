@@ -3,7 +3,7 @@ import { Language, TranslationSet, PilgrimProfile } from './types';
 
 export const TRANSLATIONS: Record<Language, TranslationSet> = {
   [Language.AR]: {
-    title: "رعاية النسك - NuskCare",
+title: " Hajj Care",
     personalData: "البيانات الشخصية",
     medicalHistory: "التاريخ الطبي",
     medications: "التاريخ الدوائي",
@@ -29,7 +29,7 @@ export const TRANSLATIONS: Record<Language, TranslationSet> = {
     close: "إغلاق"
   },
   [Language.EN]: {
-    title: "NuskCare Platform",
+title: "Hajj Care",
     personalData: "Demographics",
     medicalHistory: "Medical History",
     medications: "Medication History",
@@ -55,7 +55,7 @@ export const TRANSLATIONS: Record<Language, TranslationSet> = {
     close: "Close"
   },
   [Language.UR]: {
-    title: "نوسک کیئر پلیٹ فارم",
+title: "Hajj Care",
     personalData: "ذاتی معلومات",
     medicalHistory: "طبی تاریخ",
     medications: "ادویات کی تفصیل",
@@ -81,7 +81,7 @@ export const TRANSLATIONS: Record<Language, TranslationSet> = {
     close: "بند کریں"
   },
   [Language.ID]: {
-    title: "Platform NuskCare",
+title: "Hajj Care",
     personalData: "Data Pribadi",
     medicalHistory: "Riwayat Medis",
     medications: "Riwayat Obat",

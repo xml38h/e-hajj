@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [profile, setProfile] = useState<PilgrimProfile>(DEFAULT_PROFILE);
   const [showLocationAlert, setShowLocationAlert] = useState(false);
   const [showQr, setShowQr] = useState(false);
+const logoUrl = new URL('./logo.png', import.meta.url).href;
 
   const t = TRANSLATIONS[lang];
   const isRtl = lang === Language.AR || lang === Language.UR;
@@ -29,6 +30,24 @@ const App: React.FC = () => {
       setLang(browserLang as Language);
     }
   }, []);
+useEffect(() => {
+  const path = window.location.pathname;
+
+  // لو دخلنا من QR مثل: /p/H-2024-1168
+  if (path.startsWith('/p/')) {
+    const idFromUrl = path.replace('/p/', '');
+
+    const savedProfile = localStorage.getItem('nuskcare_profile');
+    if (savedProfile) {
+      const parsed: PilgrimProfile = JSON.parse(savedProfile);
+
+      if (parsed.id === idFromUrl) {
+        setProfile(parsed);
+        setIsAuthenticated(true); // دخول مباشر للطوارئ
+      }
+    }
+  }
+}, []);
 
   const saveProfile = (updatedProfile: PilgrimProfile) => {
     setProfile(updatedProfile);
@@ -79,11 +98,15 @@ const App: React.FC = () => {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 px-4 py-4 shadow-sm">
         <div className="max-w-2xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-2.5 rounded-xl text-white shadow-lg shadow-emerald-100">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05l-2.294 2.294 1.58 4.74a1 1 0 01-1.527 1.157l-4.412-2.521-4.412 2.52a1 1 0 01-1.527-1.156l1.58-4.74-2.294-2.294a1 1 0 01-.285-1.05l1.738-5.42-1.233-.616a1 1 0 01.894-1.79l1.599.8L9 4.323V3a1 1 0 011-1z" />
-              </svg>
-            </div>
+            <div className="bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+  <img
+    src={logoUrl}
+    alt="Hajj Care"
+    className="w-14 h-18 object-contain"
+  />
+</div>
+
+
             <div>
               <h1 className="text-lg font-extrabold text-gray-800 leading-none">{t.title}</h1>
               <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-bold">

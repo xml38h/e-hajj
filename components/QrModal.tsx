@@ -1,3 +1,5 @@
+import QRCode from 'qrcode';
+import { useEffect, useState } from 'react';
 
 import React from 'react';
 import { TranslationSet } from '../types';
@@ -12,7 +14,14 @@ interface QrModalProps {
 const QrModal: React.FC<QrModalProps> = ({ profileId, onClose, t, isRtl }) => {
   // استخدام رابط الموقع الحالي لجعله يعمل عند المسح
   const currentUrl = window.location.href;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(currentUrl)}&bgcolor=ffffff&color=065f46`;
+  const qrUrl = `${window.location.origin}/p/${profileId}`;
+const [qrImage, setQrImage] = useState<string>('');
+
+useEffect(() => {
+  QRCode.toDataURL(qrUrl, { width: 256, margin: 2 })
+    .then(setQrImage)
+    .catch(console.error);
+}, [qrUrl]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(currentUrl);
@@ -34,9 +43,9 @@ const QrModal: React.FC<QrModalProps> = ({ profileId, onClose, t, isRtl }) => {
 
           <div className="bg-white p-4 rounded-3xl inline-block mb-6 border-2 border-emerald-50 shadow-inner">
             <img 
-              src={qrUrl} 
-              alt="QR Code" 
-              className="w-56 h-56 mx-auto"
+               src={qrImage}
+    alt="QR Code"
+    className="w-56 h-56 mx-auto"
             />
           </div>
 
