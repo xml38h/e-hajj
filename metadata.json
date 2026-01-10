@@ -1,0 +1,8 @@
+
+{
+  "name": "NuskCare - Hajj Medical Bracelet Platform",
+  "description": "A comprehensive medical identity platform for Hajj pilgrims, featuring multilingual support, emergency medical records, and real-time location sharing.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
