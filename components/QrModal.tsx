@@ -13,8 +13,8 @@ interface QrModalProps {
 
 const QrModal: React.FC<QrModalProps> = ({ profileId, onClose, t, isRtl }) => {
   // استخدام رابط الموقع الحالي لجعله يعمل عند المسح
-  const currentUrl = window.location.href;
   const qrUrl = `${window.location.origin}/p/${profileId}`;
+const currentUrl = qrUrl;
 const [qrImage, setQrImage] = useState<string>('');
 
 useEffect(() => {

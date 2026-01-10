@@ -20,16 +20,34 @@ const logoUrl = new URL('./logo.png', import.meta.url).href;
   const isRtl = lang === Language.AR || lang === Language.UR;
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem('nuskcare_profile');
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile));
+  const path = window.location.pathname;
+
+  const savedProfile = localStorage.getItem('nuskcare_profile');
+  if (savedProfile) {
+    const parsed: PilgrimProfile = JSON.parse(savedProfile);
+
+    // ✅ لو دخلنا من QR خاص: /p/H-2024-1168
+    if (path.startsWith('/p/')) {
+      const idFromUrl = path.replace('/p/', '');
+
+      if (parsed.id === idFromUrl) {
+        setProfile(parsed);
+        setIsAuthenticated(true); // دخول مباشر
+        setIsEditMode(false);     // قراءة فقط
+        return;
+      }
     }
 
-    const browserLang = navigator.language.split('-')[0];
-    if (Object.values(Language).includes(browserLang as Language)) {
-      setLang(browserLang as Language);
-    }
-  }, []);
+    // الوضع العادي
+    setProfile(parsed);
+  }
+
+  const browserLang = navigator.language.split('-')[0];
+  if (Object.values(Language).includes(browserLang as Language)) {
+    setLang(browserLang as Language);
+  }
+}, []);
+
 useEffect(() => {
   const path = window.location.pathname;
 
