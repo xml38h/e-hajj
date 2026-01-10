@@ -19,34 +19,58 @@ const logoUrl = new URL('./logo.png', import.meta.url).href;
   const t = TRANSLATIONS[lang];
   const isRtl = lang === Language.AR || lang === Language.UR;
 
-  useEffect(() => {
+ useEffect(() => {
   const path = window.location.pathname;
 
-  const savedProfile = localStorage.getItem('nuskcare_profile');
-  if (savedProfile) {
-    const parsed: PilgrimProfile = JSON.parse(savedProfile);
+  // ✅ إذا فتحنا رابط خاص من QR
+  if (path.startsWith('/p/')) {
+    const idFromUrl = path.replace('/p/', '');
 
-    // ✅ لو دخلنا من QR خاص: /p/H-2024-1168
-    if (path.startsWith('/p/')) {
-      const idFromUrl = path.replace('/p/', '');
+    const savedProfile = localStorage.getItem('nuskcare_profile');
 
+    // لو عندنا بيانات محفوظة على نفس المتصفح
+    if (savedProfile) {
+      const parsed: PilgrimProfile = JSON.parse(savedProfile);
+
+      // ✅ إذا نفس المريض
       if (parsed.id === idFromUrl) {
         setProfile(parsed);
-        setIsAuthenticated(true); // دخول مباشر
-        setIsEditMode(false);     // قراءة فقط
+        setIsAuthenticated(true);
+        setIsEditMode(false);
         return;
       }
     }
 
-    // الوضع العادي
-    setProfile(parsed);
+    // ✅ مهم: لا نسمح بتوليد ID جديد
+    // نخلي الملف "طوارئ/فارغ" لكن بنفس ID اللي في الرابط
+    setProfile({
+      ...DEFAULT_PROFILE,
+      id: idFromUrl,
+      fullName: 'Emergency View (No local data)',
+      medicalHistory: { chronicDiseases: [], allergies: [], previousSurgeries: [] },
+      medicationHistory: [],
+      vitalSigns: {
+        bloodType: '',
+        lastUpdated: new Date().toISOString(),
+        bloodSugarReadings: [],
+        bloodPressureReadings: [],
+      },
+    });
+    setIsAuthenticated(true);
+    setIsEditMode(false);
+    return;
   }
+
+  // الوضع العادي
+  const savedProfile = localStorage.getItem('nuskcare_profile');
+  if (savedProfile) setProfile(JSON.parse(savedProfile));
 
   const browserLang = navigator.language.split('-')[0];
   if (Object.values(Language).includes(browserLang as Language)) {
     setLang(browserLang as Language);
   }
 }, []);
+
 
 useEffect(() => {
   const path = window.location.pathname;
