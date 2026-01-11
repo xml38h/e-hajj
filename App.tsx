@@ -340,14 +340,15 @@ const App: React.FC = () => {
       )}
 
       {/* ✅ QR Modal: لاحظ هنا نمرر shareUrl (القصير) */}
-      {showQr && (
-        <QrModal
-          shareUrl={qrShareUrl}
-          onClose={() => setShowQr(false)}
-          t={t}
-          isRtl={isRtl}
-        />
-      )}
+     {showQr && (
+  <QrModal
+    shareUrl={buildShareUrl(profile)}
+    onClose={() => setShowQr(false)}
+    t={t}
+    isRtl={isRtl}
+  />
+)}
+
 
       {showLocationAlert && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-8 py-4 rounded-2xl text-sm font-bold z-[60] shadow-2xl flex items-center gap-3 animate-in slide-in-from-top duration-300">
