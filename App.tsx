@@ -29,22 +29,6 @@ const App: React.FC = () => {
     const base64 = btoa(unescape(encodeURIComponent(json)));
     return encodeURIComponent(base64);
   };
-const buildSmartShareUrl = async (p: PilgrimProfile) => {
-  try {
-    // جرّب نحفظ في Firestore
-    await saveProfileToCloud(p as any);
-
-    // لو نجح → رابط قصير
-    return buildQrUrl(p);
-  } catch (e) {
-    console.log('Cloud failed, fallback to long URL', e);
-
-    // فشل → رابط طويل فيه d
-    const origin = window.location.origin;
-    const d = encodeProfileToUrlParam(p);
-    return `${origin}/p/${encodeURIComponent(p.id)}?d=${d}`;
-  }
-};
 
   const decodeProfileFromUrlParam = (d: string): PilgrimProfile => {
     const base64 = decodeURIComponent(d);
@@ -52,45 +36,30 @@ const buildSmartShareUrl = async (p: PilgrimProfile) => {
     return JSON.parse(json);
   };
 
-  // ✅ رابط الشير الكامل (يشتغل على أي جهاز لأنه يحتوي d)
+  // ✅ رابط مشاركة طويل (يشغل على أي جهاز بدون Firestore)
   const buildShareUrl = (p: PilgrimProfile) => {
     const origin = window.location.origin;
     const d = encodeProfileToUrlParam(p);
     return `${origin}/p/${encodeURIComponent(p.id)}?d=${d}`;
   };
 
-  // ✅ رابط QR القصير (بدون d) — يعتمد على Firestore
+  // ✅ رابط قصير (للـ QR وللشيرات القصيرة) يعتمد على Firestore
   const buildQrUrl = (p: PilgrimProfile) => {
     const origin = window.location.origin;
     return `${origin}/p/${encodeURIComponent(p.id)}`;
   };
 
-  // ✅ NEW: مزامنة البروفايل إلى Firestore (عشان QR القصير يجيب نفس البيانات)
+  // ✅ مهم: قبل ما نطلع QR أو نرسل رابط قصير، نضمن انه محفوظ في Firestore
   const ensureCloudSync = async (p: PilgrimProfile) => {
     try {
-      if (!p?.id) return;
-      // لا ترفع الـ DEFAULT الفاضي بالغلط
-      if (p.fullName === DEFAULT_PROFILE.fullName && p.passportId === DEFAULT_PROFILE.passportId) {
-        return;
-      }
       await saveProfileToCloud(p as any);
+      return true;
     } catch (e) {
       console.log('Cloud sync failed', e);
+      alert('⚠️ ما قدرت أحفظ البروفايل في Firestore. شيّك إعدادات Firebase/Rules.');
+      return false;
     }
   };
-const createNewProfile = () => {
-  const newId = `H-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-  const freshProfile: PilgrimProfile = {
-    ...DEFAULT_PROFILE,
-    id: newId,
-  };
-
-  setProfile(freshProfile);
-  localStorage.setItem('nuskcare_profile', JSON.stringify(freshProfile));
-  setIsAuthenticated(true);
-  setIsEditMode(true);
-};
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -112,10 +81,6 @@ const createNewProfile = () => {
             localStorage.setItem('nuskcare_profile', JSON.stringify(finalProfile));
             setIsAuthenticated(true);
             setIsEditMode(false);
-
-            // ✅ NEW: بعد ما نجيب بيانات كاملة من d → خزّنها في Firestore
-            await ensureCloudSync(finalProfile);
-
             return;
           } catch (e) {
             console.error('Failed to decode shared profile', e);
@@ -136,7 +101,7 @@ const createNewProfile = () => {
           console.error('Failed to load profile from cloud', e);
         }
 
-        // 3) fallback: لو ما لقيناه لا محلي ولا كلاود
+        // 3) fallback: localStorage
         const savedProfile = localStorage.getItem('nuskcare_profile');
         if (savedProfile) {
           const parsed: PilgrimProfile = JSON.parse(savedProfile);
@@ -144,10 +109,6 @@ const createNewProfile = () => {
             setProfile(parsed);
             setIsAuthenticated(true);
             setIsEditMode(false);
-
-            // ✅ NEW: حتى لو طلع من local → خزّنه في Firestore عشان باقي الأجهزة
-            await ensureCloudSync(parsed);
-
             return;
           }
         }
@@ -189,69 +150,72 @@ const createNewProfile = () => {
     localStorage.setItem('nuskcare_profile', JSON.stringify(updatedProfile));
     setIsEditMode(false);
 
-    // ✅ NEW: حفظ تلقائي إلى Firestore
+    // ✅ احفظ للكلاود (وأطلع تنبيه لو فشل)
     await ensureCloudSync(updatedProfile);
   };
 
   const handleShareLocation = async () => {
-  if (!('geolocation' in navigator)) return;
+    if (!('geolocation' in navigator)) return;
 
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      const { latitude, longitude } = pos.coords;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
 
-      const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+        const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
 
-      await ensureCloudSync(profile);
-      const profileUrl = buildQrUrl(profile);
+        // ✅ رابط البروفايل قصير (ويُفضّل نضمن حفظه)
+        const shortProfileUrl = buildQrUrl(profile);
+        await ensureCloudSync(profile);
 
-      const text =
-        `📍 موقع الحاج الآن: ${profile.fullName}\n\n` +
-        `🗺️ Google Maps:\n${mapsUrl}\n\n` +
-        `🧾 الملف الطبي:\n${profileUrl}`;
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: t.title,
+              text: `موقع الحاج الآن: ${profile.fullName}\n\nGoogle Maps: ${mapsUrl}\n\nالملف الطبي: ${shortProfileUrl}`,
+              url: shortProfileUrl,
+            });
+            return;
+          } catch (e) {
+            console.log('Share canceled or failed', e);
+          }
+        }
 
-      if (navigator.share) {
+        const msg = `موقع الحاج الآن: ${profile.fullName}\nGoogle Maps: ${mapsUrl}\nالملف الطبي: ${shortProfileUrl}`;
+        try {
+          await navigator.clipboard.writeText(msg);
+          setShowLocationAlert(true);
+          setTimeout(() => setShowLocationAlert(false), 3000);
+        } catch {
+          window.open(mapsUrl, '_blank');
+        }
+      },
+      (err) => {
+        console.log('Geolocation error', err);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
+
+  const handleNativeShare = async () => {
+    // ✅ مشاركة بروفايل “قصير”
+    const shortUrl = buildQrUrl(profile);
+    const ok = await ensureCloudSync(profile);
+    if (!ok) return;
+
+    if (navigator.share) {
+      try {
         await navigator.share({
           title: t.title,
-          text,          // ✅ الرسالة كاملة
-          // لا تحط url هنا
+          text: `الملف الطبي للحاج: ${profile.fullName}`,
+          url: shortUrl,
         });
-        return;
+      } catch (err) {
+        console.log('Error sharing:', err);
       }
-
-      await navigator.clipboard.writeText(text);
-      setShowLocationAlert(true);
-      setTimeout(() => setShowLocationAlert(false), 3000);
-    },
-    (err) => console.log('Geolocation error', err),
-    {
-      enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 0, // ✅ مهم
+    } else {
+      setShowQr(true);
     }
-  );
-};
-
-
-const handleNativeShare = async () => {
-  // ✅ رابط ذكي
-  const shareUrl = await buildSmartShareUrl(profile);
-
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: t.title,
-        text: `الملف الطبي للحاج: ${profile.fullName}\n${shareUrl}`,
-        url: shareUrl,
-      });
-    } catch (err) {
-      console.log('Error sharing:', err);
-    }
-  } else {
-    setShowQr(true);
-  }
-};
-
+  };
 
   // ✅ اتصال الحملة
   const handleEmergencyCall = () => {
@@ -304,11 +268,10 @@ const handleNativeShare = async () => {
                   </svg>
                 </button>
 
-                {/* ✅ NEW: قبل فتح QR نسوي sync عشان أي جهاز يجيب نفس البروفايل */}
                 <button
                   onClick={async () => {
-                    await ensureCloudSync(profile);
-                    setShowQr(true);
+                    const ok = await ensureCloudSync(profile);
+                    if (ok) setShowQr(true);
                   }}
                   className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all border border-emerald-100"
                   title="Show QR Code"
@@ -324,15 +287,6 @@ const handleNativeShare = async () => {
                 </button>
               </>
             )}
-{isAuthenticated && !isEditMode && (
-  <button
-    onClick={createNewProfile}
-    className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 border border-emerald-100"
-    title="حاج جديد"
-  >
-    ➕
-  </button>
-)}
 
             {isAuthenticated && !isEditMode && (
               <button
@@ -404,7 +358,7 @@ const handleNativeShare = async () => {
         </div>
       )}
 
-      {/* ✅ QR Modal: يطلع رابط قصير /p/<id> (والبيانات تجي من Firestore) */}
+      {/* ✅ QR Modal */}
       {showQr && (
         <QrModal
           shareUrl={qrShareUrl}
