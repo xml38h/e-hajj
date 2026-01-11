@@ -260,7 +260,7 @@ const App: React.FC = () => {
 
     setProfile(freshProfile);
     localStorage.setItem('nuskcare_profile', JSON.stringify(freshProfile));
-    setIsAuthenticated(true);
+    setIsAuthenticated(false);
     setIsEditMode(true); // يدخل مباشرة تعديل
   };
 
