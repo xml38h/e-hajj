@@ -228,6 +228,41 @@ const App: React.FC = () => {
     if (!profile.redCrescentPhone) return;
     window.location.href = `tel:${profile.redCrescentPhone}`;
   };
+  // ✅ Generate simple unique ID (مثال: H-2026-xxxx)
+  const generateNewProfileId = () => {
+    const year = new Date().getFullYear();
+    const rand = Math.floor(1000 + Math.random() * 9000); // 4 digits
+    return `H-${year}-${rand}`;
+  };
+
+  // ✅ زر: بروفايل جديد
+  const handleNewProfile = () => {
+    const newId = generateNewProfileId();
+
+    const freshProfile: PilgrimProfile = {
+      ...DEFAULT_PROFILE,
+      id: newId,
+      fullName: '',
+      passportId: '',
+      emergencyContactName: '',
+      emergencyPhone: '',
+      securityCode: '',
+      redCrescentPhone: '',
+      medicalHistory: { chronicDiseases: [], allergies: [], previousSurgeries: [] },
+      medicationHistory: [],
+      vitalSigns: {
+        ...DEFAULT_PROFILE.vitalSigns,
+        lastUpdated: new Date().toISOString(),
+        bloodPressureReadings: [],
+        bloodSugarReadings: [],
+      },
+    };
+
+    setProfile(freshProfile);
+    localStorage.setItem('nuskcare_profile', JSON.stringify(freshProfile));
+    setIsAuthenticated(true);
+    setIsEditMode(true); // يدخل مباشرة تعديل
+  };
 
   // ✅ رابط QR القصير
   const qrShareUrl = buildQrUrl(profile);
@@ -287,6 +322,15 @@ const App: React.FC = () => {
                 </button>
               </>
             )}
+{isAuthenticated && !isEditMode && (
+  <button
+    onClick={handleNewProfile}
+    className="px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition-all border border-amber-100 font-bold text-xs"
+    title="New Profile"
+  >
+    + جديد
+  </button>
+)}
 
             {isAuthenticated && !isEditMode && (
               <button
