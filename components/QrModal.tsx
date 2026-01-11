@@ -40,6 +40,12 @@ const QrModal: React.FC<QrModalProps> = ({ shareUrl, onClose, t, isRtl }) => {
           setQrFailed(true);
           return;
         }
+useEffect(() => {
+  console.log('QR URL:', qrUrl); // ✅ شوف الرابط كامل في الكونسل
+  QRCode.toDataURL(qrUrl, { width: 256, margin: 2 })
+    .then(setQrImage)
+    .catch(console.error);
+}, [qrUrl]);
 
         // ✅ توليد QR كـ DataURL
         const dataUrl = await QRCode.toDataURL(qrUrl, {
