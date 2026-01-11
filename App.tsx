@@ -138,14 +138,47 @@ const App: React.FC = () => {
     setIsEditMode(false);
   };
 
-  const handleShareLocation = () => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(() => {
+  const handleShareLocation = async () => {
+  if (!('geolocation' in navigator)) return;
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude, longitude } = pos.coords;
+
+      const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+      const shareUrl = buildShareUrl(profile);
+
+      // ✅ إذا الجهاز يدعم مشاركة النظام
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: t.title,
+            text: `موقع الحاج الآن: ${profile.fullName}\n\nGoogle Maps: ${mapsUrl}\n\nالملف الطبي: ${shareUrl}`,
+            url: shareUrl, // بعض الأجهزة تضيفه كرابط رئيسي
+          });
+          return;
+        } catch (e) {
+          console.log('Share canceled or failed', e);
+        }
+      }
+
+      // ✅ fallback: نسخ للClipboard
+      const msg = `موقع الحاج الآن: ${profile.fullName}\nGoogle Maps: ${mapsUrl}\nالملف الطبي: ${shareUrl}`;
+      try {
+        await navigator.clipboard.writeText(msg);
         setShowLocationAlert(true);
         setTimeout(() => setShowLocationAlert(false), 3000);
-      });
-    }
-  };
+      } catch {
+        // آخر حل: افتح خرائط مباشرة
+        window.open(mapsUrl, '_blank');
+      }
+    },
+    (err) => {
+      console.log('Geolocation error', err);
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+};
 
   const handleNativeShare = async () => {
     // ✅ share the CURRENT pilgrim profile link (not the general site)
