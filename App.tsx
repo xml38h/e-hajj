@@ -78,6 +78,19 @@ const buildSmartShareUrl = async (p: PilgrimProfile) => {
       console.log('Cloud sync failed', e);
     }
   };
+const createNewProfile = () => {
+  const newId = `H-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const freshProfile: PilgrimProfile = {
+    ...DEFAULT_PROFILE,
+    id: newId,
+  };
+
+  setProfile(freshProfile);
+  localStorage.setItem('nuskcare_profile', JSON.stringify(freshProfile));
+  setIsAuthenticated(true);
+  setIsEditMode(true);
+};
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -311,6 +324,15 @@ const handleNativeShare = async () => {
                 </button>
               </>
             )}
+{isAuthenticated && !isEditMode && (
+  <button
+    onClick={createNewProfile}
+    className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 border border-emerald-100"
+    title="حاج جديد"
+  >
+    ➕
+  </button>
+)}
 
             {isAuthenticated && !isEditMode && (
               <button
