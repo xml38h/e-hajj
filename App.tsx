@@ -40,7 +40,7 @@ const App: React.FC = () => {
   const buildShareUrl = (p: PilgrimProfile) => {
     const origin = window.location.origin;
     const d = encodeProfileToUrlParam(p);
-    return `${origin}/p/${encodeURIComponent(p.id)}?d=${d}`;
+    return `${origin}/p/${encodeURIComponent(p.id)}`;
   };
 
   // ✅ هذا “للـ QR” فقط (رابط قصير وخفيف)
@@ -100,6 +100,19 @@ const App: React.FC = () => {
             return;
           }
         }
+// ✅ محاولة تحميل من Firestore (عشان يشتغل على أي جهاز)
+try {
+  const cloudProfile = await loadProfileFromCloud(idFromUrl);
+  if (cloudProfile) {
+    setProfile(cloudProfile as any);
+    localStorage.setItem('nuskcare_profile', JSON.stringify(cloudProfile));
+    setIsAuthenticated(true);
+    setIsEditMode(false);
+    return;
+  }
+} catch (e) {
+  console.log('Cloud load failed', e);
+}
 
         // 4) Emergency view
         setProfile({
@@ -139,11 +152,12 @@ const App: React.FC = () => {
   setIsEditMode(false);
 
   try {
-    await saveProfileToCloud(updatedProfile);
+    await saveProfileToCloud(updatedProfile as any);
   } catch (e) {
-    console.error('Failed to save profile to cloud', e);
+    console.log('Cloud save failed', e);
   }
 };
+
 
 
   const handleShareLocation = async () => {

@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import React from 'react';
 import { TranslationSet } from '../types';
@@ -12,65 +12,16 @@ interface QrModalProps {
 }
 
 const QrModal: React.FC<QrModalProps> = ({ shareUrl, onClose, t, isRtl }) => {
-  // استخدام رابط الموقع الحالي لجعله يعمل عند المسح
   const qrValue = shareUrl;
-  const qrUrl = qrValue; // نفس الرابط للـ QR
+  const qrUrl = qrValue;
   const currentUrl = qrValue;
 
   const [qrImage, setQrImage] = useState<string>('');
-  const [qrFailed, setQrFailed] = useState(false);
-
-  // ✅ Fallback QR image (إذا مكتبة qrcode لخبطت على جهاز معيّن)
-  const fallbackQrImg = useMemo(() => {
-    // خدمة توليد QR كصورة PNG
-    // (استخدمنا encodeURIComponent عشان الروابط الطويلة)
-    const encoded = encodeURIComponent(qrUrl || '');
-    return `https://api.qrserver.com/v1/create-qr-code/?size=256x256&margin=10&data=${encoded}`;
-  }, [qrUrl]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const generate = async () => {
-      try {
-        setQrFailed(false);
-
-        // ✅ حماية إضافية: لو الرابط فاضي أو قصير جدًا
-        if (!qrUrl || String(qrUrl).trim().length < 5) {
-          setQrFailed(true);
-          return;
-        }
-useEffect(() => {
-  console.log('QR URL:', qrUrl); // ✅ شوف الرابط كامل في الكونسل
-  QRCode.toDataURL(qrUrl, { width: 256, margin: 2 })
-    .then(setQrImage)
-    .catch(console.error);
-}, [qrUrl]);
-
-        // ✅ توليد QR كـ DataURL
-        const dataUrl = await QRCode.toDataURL(qrUrl, {
-          width: 256,
-          margin: 2,
-          errorCorrectionLevel: 'M',
-        });
-
-        if (!cancelled) {
-          setQrImage(dataUrl);
-          setQrFailed(false);
-        }
-      } catch (e) {
-        console.error('QR generation failed:', e);
-        if (!cancelled) {
-          setQrFailed(true);
-        }
-      }
-    };
-
-    generate();
-
-    return () => {
-      cancelled = true;
-    };
+    QRCode.toDataURL(qrUrl, { width: 256, margin: 2, errorCorrectionLevel: 'M' })
+      .then(setQrImage)
+      .catch(console.error);
   }, [qrUrl]);
 
   const copyToClipboard = () => {
@@ -96,16 +47,7 @@ useEffect(() => {
           </div>
 
           <div className="bg-white p-4 rounded-3xl inline-block mb-6 border-2 border-emerald-50 shadow-inner">
-            {/* ✅ لو نجح التوليد نعرض dataURL، ولو فشل نعرض fallback */}
-            <img
-              src={qrFailed ? fallbackQrImg : qrImage}
-              alt="QR Code"
-              className="w-56 h-56 mx-auto"
-              onError={() => {
-                // ✅ لو حتى الصورة فشلت (نادر) لا نطيّح الصفحة
-                setQrFailed(true);
-              }}
-            />
+            <img src={qrImage} alt="QR Code" className="w-56 h-56 mx-auto" />
           </div>
 
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">{t.scanInstructions}</p>
