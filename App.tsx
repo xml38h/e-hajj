@@ -246,7 +246,7 @@ const App: React.FC = () => {
       passportId: '',
       emergencyContactName: '',
       emergencyPhone: '',
-      securityCode: '',
+      securityCode: '1234',
       redCrescentPhone: '',
       medicalHistory: { chronicDiseases: [], allergies: [], previousSurgeries: [] },
       medicationHistory: [],
