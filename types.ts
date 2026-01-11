@@ -2,7 +2,7 @@ export enum Language {
   AR = 'ar',
   EN = 'en',
   UR = 'ur',
-  ID = 'id'
+  ID = 'id',
 }
 
 export interface Medication {
@@ -11,7 +11,7 @@ export interface Medication {
   frequency: string;
 }
 
-/** NEW: Reading history types */
+/** Reading history types */
 export interface BloodSugarReading {
   value: number;
   unit: 'mg/dL' | 'mmol/L';
@@ -27,7 +27,7 @@ export interface BloodPressureReading {
   note?: string;
 }
 
-/** UPDATED: Vital signs now store multiple readings with date/time */
+/** Vital signs store multiple readings with date/time */
 export interface VitalSigns {
   bloodType: string;
   lastUpdated: string;
@@ -48,47 +48,92 @@ export interface PilgrimProfile {
   nationality: string;
   nativeLanguage: string;
   passportId: string;
-  emergencyContactName: string;      // اسم مرافق / مسؤول الحملة
-emergencyPhone: string;            // رقم الحملة
-redCrescentPhone?: string;         // رقم الهلال الأحمر
 
-    // ✅ NEW
-  heightCm?: number;   // الطول بالسنتيمتر
-  weightKg?: number;   // الوزن بالكيلو
-  bmi?: number;        // يتم حسابه تلقائياً
-    // ✅ NEW
+  emergencyContactName: string; // اسم الحملة / مسؤول الحملة
+  emergencyPhone: string; // رقم الحملة
+  redCrescentPhone?: string; // رقم الهلال الأحمر
+
+  heightCm?: number;
+  weightKg?: number;
+  bmi?: number;
+
   dateOfBirth?: string; // ISO مثل: "1998-05-21"
-  ageYears?: number;    // اختياري (نحسبه تلقائيًا)
+  ageYears?: number;
 
   medicalHistory: MedicalHistory;
   medicationHistory: Medication[];
   vitalSigns: VitalSigns;
+
   securityCode: string;
 }
 
 export interface TranslationSet {
+  // General / App
   title: string;
+  language: string;
+  close: string;
+  back: string;
+  verify: string;
+
+  // Sections
   personalData: string;
   medicalHistory: string;
   medications: string;
   vitalSigns: string;
-  emergencyContact: string;
+
+  // Buttons / Actions
+  editProfile: string;
+  shareProfile: string;
   callEmergency: string;
   shareLocation: string;
+
+  // Security
   enterSecurityCode: string;
   securityPrompt: string;
   accessGranted: string;
+
+  // Medical labels
   chronicDiseases: string;
   allergies: string;
   surgeries: string;
   bloodType: string;
   bloodPressure: string;
   bloodSugar: string;
-  verify: string;
-  back: string;
-  language: string;
-  editProfile: string;
-  shareProfile: string;
+
+  // Demographics labels
+  labelName: string;
+  labelIdPassport: string;
+  labelNationality: string;
+  labelDob: string;
+  labelAge: string;
+  labelHeight: string;
+  labelWeight: string;
+  labelBmi: string;
+  yearsUnit: string;
+  cmUnit: string;
+  kgUnit: string;
+
+  // Emergency summary (AI)
+  emergencySummaryAI: string;
+  analyzingMedicalData: string;
+  noMedicalSummaryAvailable: string;
+  summaryChronic: string; // e.g. "Chronic"
+  summaryMeds: string; // e.g. "Meds"
+  summaryLatestBP: string; // e.g. "Latest BP"
+  summaryLatestSugar: string; // e.g. "Latest Sugar"
+
+  // Vital history UI
+  tapToViewHistory: string;
+  noSugarReadings: string;
+  noBpReadings: string;
+  pulseLabel: string;
+
+  // Emergency contact card
+  emergencyContact: string;
+  campaignPhoneLabel: string;
+  redCrescentPhoneLabel: string;
+
+  // QR / instructions (used elsewhere)
   scanInstructions: string;
-  close: string;
+  shareProfileLabel?: string; // backward/optional if older components expect different key
 }
