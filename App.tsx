@@ -29,6 +29,22 @@ const App: React.FC = () => {
     const base64 = btoa(unescape(encodeURIComponent(json)));
     return encodeURIComponent(base64);
   };
+const buildSmartShareUrl = async (p: PilgrimProfile) => {
+  try {
+    // جرّب نحفظ في Firestore
+    await saveProfileToCloud(p as any);
+
+    // لو نجح → رابط قصير
+    return buildQrUrl(p);
+  } catch (e) {
+    console.log('Cloud failed, fallback to long URL', e);
+
+    // فشل → رابط طويل فيه d
+    const origin = window.location.origin;
+    const d = encodeProfileToUrlParam(p);
+    return `${origin}/p/${encodeURIComponent(p.id)}?d=${d}`;
+  }
+};
 
   const decodeProfileFromUrlParam = (d: string): PilgrimProfile => {
     const base64 = decodeURIComponent(d);
@@ -172,7 +188,8 @@ const App: React.FC = () => {
         const { latitude, longitude } = pos.coords;
 
         const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-        const shareUrl = buildShareUrl(profile);
+const shareUrl = await buildSmartShareUrl(profile);
+
 
         if (navigator.share) {
           try {
@@ -203,23 +220,25 @@ const App: React.FC = () => {
     );
   };
 
-  const handleNativeShare = async () => {
-    const shareUrl = buildShareUrl(profile);
+const handleNativeShare = async () => {
+  // ✅ رابط ذكي
+  const shareUrl = await buildSmartShareUrl(profile);
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: t.title,
-          text: `الملف الطبي للحاج: ${profile.fullName}`,
-          url: shareUrl,
-        });
-      } catch (err) {
-        console.log('Error sharing:', err);
-      }
-    } else {
-      setShowQr(true);
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: t.title,
+        text: `الملف الطبي للحاج: ${profile.fullName}\n${shareUrl}`,
+        url: shareUrl,
+      });
+    } catch (err) {
+      console.log('Error sharing:', err);
     }
-  };
+  } else {
+    setShowQr(true);
+  }
+};
+
 
   // ✅ اتصال الحملة
   const handleEmergencyCall = () => {
