@@ -236,24 +236,33 @@ const App: React.FC = () => {
   };
 
   // ✅ زر: بروفايل جديد
- const handleNewProfile = () => {
-  const newId = generateNewProfileId();
+  const handleNewProfile = () => {
+    const newId = generateNewProfileId();
 
-  const freshProfile: PilgrimProfile = {
-    ...DEFAULT_PROFILE,
-    id: newId,
-    securityCode: '1234', // ⭐ مهم
-    fullName: '',
-    emergencyPhone: '',
-    redCrescentPhone: '',
+    const freshProfile: PilgrimProfile = {
+      ...DEFAULT_PROFILE,
+      id: newId,
+      fullName: '',
+      passportId: '',
+      emergencyContactName: '',
+      emergencyPhone: '',
+      securityCode: '',
+      redCrescentPhone: '',
+      medicalHistory: { chronicDiseases: [], allergies: [], previousSurgeries: [] },
+      medicationHistory: [],
+      vitalSigns: {
+        ...DEFAULT_PROFILE.vitalSigns,
+        lastUpdated: new Date().toISOString(),
+        bloodPressureReadings: [],
+        bloodSugarReadings: [],
+      },
+    };
+
+    setProfile(freshProfile);
+    localStorage.setItem('nuskcare_profile', JSON.stringify(freshProfile));
+    setIsAuthenticated(true);
+    setIsEditMode(true); // يدخل مباشرة تعديل
   };
-
-  setProfile(freshProfile);
-  localStorage.setItem('nuskcare_profile', JSON.stringify(freshProfile));
-  setIsAuthenticated(true);
-  setIsEditMode(true);
-};
-
 
   // ✅ رابط QR القصير
   const qrShareUrl = buildQrUrl(profile);
