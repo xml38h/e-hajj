@@ -36,17 +36,31 @@ const App: React.FC = () => {
     return JSON.parse(json);
   };
 
-  // ✅ هذا اللي للشير (يشتغل على أي جهاز لأنه فيه d)
+  // ✅ رابط الشير الكامل (يشتغل على أي جهاز لأنه يحتوي d)
   const buildShareUrl = (p: PilgrimProfile) => {
     const origin = window.location.origin;
     const d = encodeProfileToUrlParam(p);
     return `${origin}/p/${encodeURIComponent(p.id)}?d=${d}`;
   };
 
-  // ✅ هذا “للـ QR” فقط (رابط قصير وخفيف)
+  // ✅ رابط QR القصير (بدون d) — يعتمد على Firestore
   const buildQrUrl = (p: PilgrimProfile) => {
     const origin = window.location.origin;
     return `${origin}/p/${encodeURIComponent(p.id)}`;
+  };
+
+  // ✅ NEW: مزامنة البروفايل إلى Firestore (عشان QR القصير يجيب نفس البيانات)
+  const ensureCloudSync = async (p: PilgrimProfile) => {
+    try {
+      if (!p?.id) return;
+      // لا ترفع الـ DEFAULT الفاضي بالغلط
+      if (p.fullName === DEFAULT_PROFILE.fullName && p.passportId === DEFAULT_PROFILE.passportId) {
+        return;
+      }
+      await saveProfileToCloud(p as any);
+    } catch (e) {
+      console.log('Cloud sync failed', e);
+    }
   };
 
   useEffect(() => {
@@ -70,10 +84,9 @@ const App: React.FC = () => {
             setIsAuthenticated(true);
             setIsEditMode(false);
 
-            // (اختياري مفيد) خزّنه في الكلاود عشان الـ QR القصير يشتغل بعدين
-            try {
-              await saveProfileToCloud(finalProfile as any);
-            } catch {}
+            // ✅ NEW: بعد ما نجيب بيانات كاملة من d → خزّنها في Firestore
+            await ensureCloudSync(finalProfile);
+
             return;
           } catch (e) {
             console.error('Failed to decode shared profile', e);
@@ -94,7 +107,7 @@ const App: React.FC = () => {
           console.error('Failed to load profile from cloud', e);
         }
 
-        // 3) fallback: localStorage
+        // 3) fallback: لو ما لقيناه لا محلي ولا كلاود
         const savedProfile = localStorage.getItem('nuskcare_profile');
         if (savedProfile) {
           const parsed: PilgrimProfile = JSON.parse(savedProfile);
@@ -102,6 +115,10 @@ const App: React.FC = () => {
             setProfile(parsed);
             setIsAuthenticated(true);
             setIsEditMode(false);
+
+            // ✅ NEW: حتى لو طلع من local → خزّنه في Firestore عشان باقي الأجهزة
+            await ensureCloudSync(parsed);
+
             return;
           }
         }
@@ -143,11 +160,8 @@ const App: React.FC = () => {
     localStorage.setItem('nuskcare_profile', JSON.stringify(updatedProfile));
     setIsEditMode(false);
 
-    try {
-      await saveProfileToCloud(updatedProfile as any);
-    } catch (e) {
-      console.log('Cloud save failed', e);
-    }
+    // ✅ NEW: حفظ تلقائي إلى Firestore
+    await ensureCloudSync(updatedProfile);
   };
 
   const handleShareLocation = async () => {
@@ -207,17 +221,19 @@ const App: React.FC = () => {
     }
   };
 
+  // ✅ اتصال الحملة
   const handleEmergencyCall = () => {
     if (!profile.emergencyPhone) return;
     window.location.href = `tel:${profile.emergencyPhone}`;
   };
 
+  // ✅ اتصال الهلال الأحمر
   const handleRedCrescentCall = () => {
     if (!profile.redCrescentPhone) return;
     window.location.href = `tel:${profile.redCrescentPhone}`;
   };
 
-  // ✅ رابط QR القصير (بدون d)
+  // ✅ رابط QR القصير
   const qrShareUrl = buildQrUrl(profile);
 
   return (
@@ -256,8 +272,12 @@ const App: React.FC = () => {
                   </svg>
                 </button>
 
+                {/* ✅ NEW: قبل فتح QR نسوي sync عشان أي جهاز يجيب نفس البروفايل */}
                 <button
-                  onClick={() => setShowQr(true)}
+                  onClick={async () => {
+                    await ensureCloudSync(profile);
+                    setShowQr(true);
+                  }}
                   className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all border border-emerald-100"
                   title="Show QR Code"
                 >
@@ -336,14 +356,14 @@ const App: React.FC = () => {
               className="flex items-center justify-center gap-2 bg-[#D61F26] text-white py-4 rounded-2xl font-bold text-sm hover:bg-[#B8181E] active:scale-95 transition-all shadow-xl shadow-red-200"
               title="الهلال الأحمر"
             >
-              <img src={redCrescentLogo} alt="Saudi Red Crescent" className="h-5 h-5 w-5 object-contain" />
+              <img src={redCrescentLogo} alt="Saudi Red Crescent" className="h-5 w-5 object-contain" />
               الهلال
             </button>
           </div>
         </div>
       )}
 
-      {/* ✅ QR Modal: نمرر رابط QR القصير */}
+      {/* ✅ QR Modal: يطلع رابط قصير /p/<id> (والبيانات تجي من Firestore) */}
       {showQr && (
         <QrModal
           shareUrl={qrShareUrl}
