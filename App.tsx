@@ -355,14 +355,15 @@ try {
       )}
 
       {/* ✅ QR Modal: لاحظ هنا نمرر shareUrl (القصير) */}
-     {showQr && (
+ {showQr && (
   <QrModal
-    shareUrl={buildQrUrl(profile)}
+    shareUrl={`${window.location.origin}/p/${encodeURIComponent(profile.id)}`}
     onClose={() => setShowQr(false)}
     t={t}
     isRtl={isRtl}
   />
 )}
+
 
 
 
