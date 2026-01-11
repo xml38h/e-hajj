@@ -1,7 +1,5 @@
 import QRCode from 'qrcode';
-import { useEffect, useState } from 'react';
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TranslationSet } from '../types';
 
 interface QrModalProps {
@@ -12,30 +10,43 @@ interface QrModalProps {
 }
 
 const QrModal: React.FC<QrModalProps> = ({ shareUrl, onClose, t, isRtl }) => {
-  const qrValue = shareUrl;
-  const qrUrl = qrValue;
-  const currentUrl = qrValue;
-
   const [qrImage, setQrImage] = useState<string>('');
 
+  // ✅ حماية: لو shareUrl غلط/فاضي لا نخلي الصفحة تطيح
+  const qrUrl = (shareUrl || '').trim();
+  const currentUrl = qrUrl;
+
   useEffect(() => {
+    let isMounted = true;
+
+    if (!qrUrl) {
+      setQrImage('');
+      return;
+    }
+
     QRCode.toDataURL(qrUrl, { width: 256, margin: 2, errorCorrectionLevel: 'M' })
-      .then(setQrImage)
-      .catch(console.error);
+      .then((img) => {
+        if (isMounted) setQrImage(img);
+      })
+      .catch((e) => {
+        console.error('QR generate failed', e);
+        if (isMounted) setQrImage('');
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [qrUrl]);
 
   const copyToClipboard = () => {
+    if (!currentUrl) return;
     navigator.clipboard.writeText(currentUrl);
     alert('Link Copied!');
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-      <div
-        className={`bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all scale-100 ${
-          isRtl ? 'rtl' : ''
-        }`}
-      >
+      <div className={`bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all scale-100 ${isRtl ? 'rtl' : ''}`}>
         <div className="p-8 text-center">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800">{t.shareProfile}</h2>
@@ -47,7 +58,13 @@ const QrModal: React.FC<QrModalProps> = ({ shareUrl, onClose, t, isRtl }) => {
           </div>
 
           <div className="bg-white p-4 rounded-3xl inline-block mb-6 border-2 border-emerald-50 shadow-inner">
-            <img src={qrImage} alt="QR Code" className="w-56 h-56 mx-auto" />
+            {qrImage ? (
+              <img src={qrImage} alt="QR Code" className="w-56 h-56 mx-auto" />
+            ) : (
+              <div className="w-56 h-56 mx-auto flex items-center justify-center text-sm text-gray-400">
+                QR not ready
+              </div>
+            )}
           </div>
 
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">{t.scanInstructions}</p>
@@ -56,7 +73,7 @@ const QrModal: React.FC<QrModalProps> = ({ shareUrl, onClose, t, isRtl }) => {
             onClick={copyToClipboard}
             className="bg-gray-50 p-4 rounded-2xl border border-gray-200 flex items-center justify-between mb-8 cursor-pointer hover:bg-gray-100 transition-all overflow-hidden"
           >
-            <span className="text-xs text-emerald-800 font-mono truncate mr-2">{currentUrl}</span>
+            <span className="text-xs text-emerald-800 font-mono truncate mr-2">{currentUrl || '—'}</span>
             <svg className="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"

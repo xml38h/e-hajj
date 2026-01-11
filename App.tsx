@@ -44,10 +44,11 @@ const App: React.FC = () => {
   };
 
   // ✅ هذا “للـ QR” فقط (رابط قصير وخفيف)
-  const buildQrUrl = (p: PilgrimProfile) => {
-    const origin = window.location.origin;
-    return `${origin}/p/${encodeURIComponent(p.id)}`;
-  };
+ const buildQrUrl = (p: PilgrimProfile) => {
+  const origin = window.location.origin;
+  return `${origin}/p/${encodeURIComponent(p.id)}`;
+};
+
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -356,12 +357,13 @@ try {
       {/* ✅ QR Modal: لاحظ هنا نمرر shareUrl (القصير) */}
      {showQr && (
   <QrModal
-    shareUrl={buildShareUrl(profile)}
+    shareUrl={buildQrUrl(profile)}
     onClose={() => setShowQr(false)}
     t={t}
     isRtl={isRtl}
   />
 )}
+
 
 
       {showLocationAlert && (
