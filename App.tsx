@@ -147,7 +147,14 @@ const App: React.FC = () => {
 
       const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
       const shareUrl = buildShareUrl(profile);
-
+{showQr && (
+  <QrModal
+    shareUrl={shareUrl}
+    onClose={() => setShowQr(false)}
+    t={t}
+    isRtl={isRtl}
+  />
+)}
       // ✅ إذا الجهاز يدعم مشاركة النظام
       if (navigator.share) {
         try {
