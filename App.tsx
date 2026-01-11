@@ -6,6 +6,7 @@ import SecurityGate from './components/SecurityGate';
 import ProfileView from './components/ProfileView';
 import QrModal from './components/QrModal';
 import EditProfile from './components/EditProfile';
+import redCrescentLogo from './image.png';
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>(Language.AR);
@@ -290,18 +291,19 @@ const App: React.FC = () => {
             </button>
 
             <button
-              onClick={handleRedCrescentCall}
-              disabled={!profile.redCrescentPhone}
-              className={`flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm active:scale-95 transition-all shadow-xl
-                ${profile.redCrescentPhone ? 'bg-red-700 text-white hover:bg-red-800 shadow-red-200' : 'bg-gray-200 text-gray-500 cursor-not-allowed shadow-gray-100'
-                }`}
-              title="اتصال الهلال الأحمر"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.0420 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-              الهلال
-            </button>
+  type="button"
+  onClick={handleRedCrescentCall}
+  className="flex items-center justify-center gap-2 bg-[#D61F26] text-white py-4 rounded-2xl font-bold text-sm hover:bg-[#B8181E] active:scale-95 transition-all shadow-xl shadow-red-200"
+  title="الهلال الأحمر"
+>
+  <img
+    src={redCrescentLogo}
+    alt="Saudi Red Crescent"
+    className="h-5 w-5 object-contain"
+  />
+  الهلال
+</button>
+
           </div>
         </div>
       )}

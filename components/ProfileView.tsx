@@ -411,9 +411,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
         </Section>
       </div>
 
-      {/* Emergency contact */}
-      <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col items-center gap-3 mt-4">
-        <h4 className="font-bold text-emerald-800">{t.emergencyContact}</h4>
+    {/* Emergency contact */}
+<div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col items-center gap-3 mt-4">
+  <h4 className="font-bold text-emerald-800">{t.emergencyContact}</h4>
+
 
         <div className="text-center space-y-2">
           <p className="text-gray-700 font-medium">{profile.emergencyContactName}</p>
