@@ -189,44 +189,33 @@ const buildSmartShareUrl = async (p: PilgrimProfile) => {
 
       const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
 
-      // 1) تأكد البروفايل محفوظ بالكلاود عشان الرابط القصير يفتح نفس البروفايل بأي جهاز
       await ensureCloudSync(profile);
-
-      // 2) رابط قصير للبروفايل
-      const shareUrl = buildQrUrl(profile);
+      const profileUrl = buildQrUrl(profile);
 
       const text =
-        `موقع الحاج الآن: ${profile.fullName}\n\n` +
-        `Google Maps:\n${mapsUrl}\n\n` +
-        `الملف الطبي:\n${shareUrl}`;
+        `📍 موقع الحاج الآن: ${profile.fullName}\n\n` +
+        `🗺️ Google Maps:\n${mapsUrl}\n\n` +
+        `🧾 الملف الطبي:\n${profileUrl}`;
 
-      // ✅ مشاركة النظام
       if (navigator.share) {
-        try {
-          await navigator.share({
-            title: t.title,
-            text,
-            // اختار واحد:
-            // url: mapsUrl,    // لو تبغى الضغط يفتح الخرايط مباشرة
-            url: mapsUrl,     // لو تبغى الضغط يفتح البروفايل (والخرايط موجودة بالنص)
-          });
-          return;
-        } catch (e) {
-          console.log('Share canceled or failed', e);
-        }
+        await navigator.share({
+          title: t.title,
+          text,          // ✅ الرسالة كاملة
+          // لا تحط url هنا
+        });
+        return;
       }
 
-      // ✅ fallback: نسخ
-      try {
-        await navigator.clipboard.writeText(text);
-        setShowLocationAlert(true);
-        setTimeout(() => setShowLocationAlert(false), 3000);
-      } catch {
-        window.open(mapsUrl, '_blank');
-      }
+      await navigator.clipboard.writeText(text);
+      setShowLocationAlert(true);
+      setTimeout(() => setShowLocationAlert(false), 3000);
     },
     (err) => console.log('Geolocation error', err),
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    {
+      enableHighAccuracy: true,
+      timeout: 20000,
+      maximumAge: 0, // ✅ مهم
+    }
   );
 };
 
