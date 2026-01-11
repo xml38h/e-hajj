@@ -120,6 +120,7 @@ const App: React.FC = () => {
           fullName: 'Emergency View (No local data)',
           medicalHistory: { chronicDiseases: [], allergies: [], previousSurgeries: [] },
           medicationHistory: [],
+          securityCode: '1234',
           vitalSigns: {
             bloodType: '',
             lastUpdated: new Date().toISOString(),
@@ -246,7 +247,7 @@ const App: React.FC = () => {
       passportId: '',
       emergencyContactName: '',
       emergencyPhone: '',
-      securityCode: '',
+      securityCode: '1234',
       redCrescentPhone: '',
       medicalHistory: { chronicDiseases: [], allergies: [], previousSurgeries: [] },
       medicationHistory: [],
