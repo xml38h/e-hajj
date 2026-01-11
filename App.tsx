@@ -8,6 +8,9 @@ import QrModal from './components/QrModal';
 import EditProfile from './components/EditProfile';
 import redCrescentLogo from './image.png';
 
+// ✅ Cloud (Firestore)
+import { saveProfileToCloud, loadProfileFromCloud } from './services/profileStore';
+
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>(Language.AR);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -33,73 +36,90 @@ const App: React.FC = () => {
     return JSON.parse(json);
   };
 
+  // ✅ هذا اللي كنت تستخدمه للشير (يشتغل على أي جهاز لأن فيه d)
   const buildShareUrl = (p: PilgrimProfile) => {
     const origin = window.location.origin;
     const d = encodeProfileToUrlParam(p);
     return `${origin}/p/${encodeURIComponent(p.id)}?d=${d}`;
   };
 
+  // ✅ هذا “للـ QR” فقط (رابط قصير وخفيف)
+  const buildQrUrl = (p: PilgrimProfile) => {
+    const origin = window.location.origin;
+    return `${origin}/p/${encodeURIComponent(p.id)}`;
+  };
+
   useEffect(() => {
     const path = window.location.pathname;
 
-    // ✅ إذا فتحنا رابط خاص من QR
+    // ✅ إذا فتحنا رابط /p/<id>
     if (path.startsWith('/p/')) {
       const idFromUrl = path.replace('/p/', '').split('?')[0];
-
       const url = new URL(window.location.href);
       const d = url.searchParams.get('d');
 
-      // ✅ 1) لو الرابط يحتوي بيانات مشفرة (d) = هذا المطلوب عشان يشتغل بأي جهاز
-      if (d) {
+      const run = async () => {
+        // 1) لو فيه d → فكّه وخلاص
+        if (d) {
+          try {
+            const decoded = decodeProfileFromUrlParam(d);
+            const finalProfile: PilgrimProfile = { ...decoded, id: idFromUrl || decoded.id };
+
+            setProfile(finalProfile);
+            localStorage.setItem('nuskcare_profile', JSON.stringify(finalProfile));
+            setIsAuthenticated(true);
+            setIsEditMode(false);
+            return;
+          } catch (e) {
+            console.error('Failed to decode shared profile', e);
+          }
+        }
+
+        // 2) لو ما فيه d → جرّب Firestore
         try {
-          const decoded = decodeProfileFromUrlParam(d);
-
-          // ✅ تأكيد الـ id من الرابط
-          const finalProfile: PilgrimProfile = { ...decoded, id: idFromUrl || decoded.id };
-
-          setProfile(finalProfile);
-          localStorage.setItem('nuskcare_profile', JSON.stringify(finalProfile));
-          setIsAuthenticated(true);
-          setIsEditMode(false);
-          return;
+          const cloudProfile = await loadProfileFromCloud(idFromUrl);
+          if (cloudProfile) {
+            setProfile(cloudProfile as PilgrimProfile);
+            localStorage.setItem('nuskcare_profile', JSON.stringify(cloudProfile));
+            setIsAuthenticated(true);
+            setIsEditMode(false);
+            return;
+          }
         } catch (e) {
-          console.error('Failed to decode shared profile', e);
-          // نكمل للخطوات الثانية كـ fallback
+          console.error('Failed to load profile from cloud', e);
         }
-      }
 
-      const savedProfile = localStorage.getItem('nuskcare_profile');
-
-      // لو عندنا بيانات محفوظة على نفس المتصفح
-      if (savedProfile) {
-        const parsed: PilgrimProfile = JSON.parse(savedProfile);
-
-        // ✅ إذا نفس المريض
-        if (parsed.id === idFromUrl) {
-          setProfile(parsed);
-          setIsAuthenticated(true);
-          setIsEditMode(false);
-          return;
+        // 3) fallback: لو ما لقيناه لا محلي ولا كلاود
+        const savedProfile = localStorage.getItem('nuskcare_profile');
+        if (savedProfile) {
+          const parsed: PilgrimProfile = JSON.parse(savedProfile);
+          if (parsed.id === idFromUrl) {
+            setProfile(parsed);
+            setIsAuthenticated(true);
+            setIsEditMode(false);
+            return;
+          }
         }
-      }
 
-      // ✅ مهم: لا نسمح بتوليد ID جديد
-      // نخلي الملف "طوارئ/فارغ" لكن بنفس ID اللي في الرابط
-      setProfile({
-        ...DEFAULT_PROFILE,
-        id: idFromUrl,
-        fullName: 'Emergency View (No local data)',
-        medicalHistory: { chronicDiseases: [], allergies: [], previousSurgeries: [] },
-        medicationHistory: [],
-        vitalSigns: {
-          bloodType: '',
-          lastUpdated: new Date().toISOString(),
-          bloodSugarReadings: [],
-          bloodPressureReadings: [],
-        },
-      });
-      setIsAuthenticated(true);
-      setIsEditMode(false);
+        // 4) Emergency view
+        setProfile({
+          ...DEFAULT_PROFILE,
+          id: idFromUrl,
+          fullName: 'Emergency View (No local data)',
+          medicalHistory: { chronicDiseases: [], allergies: [], previousSurgeries: [] },
+          medicationHistory: [],
+          vitalSigns: {
+            bloodType: '',
+            lastUpdated: new Date().toISOString(),
+            bloodSugarReadings: [],
+            bloodPressureReadings: [],
+          },
+        });
+        setIsAuthenticated(true);
+        setIsEditMode(false);
+      };
+
+      run();
       return;
     }
 
@@ -113,82 +133,59 @@ const App: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const path = window.location.pathname;
+  const saveProfile = async (updatedProfile: PilgrimProfile) => {
+  setProfile(updatedProfile);
+  localStorage.setItem('nuskcare_profile', JSON.stringify(updatedProfile));
+  setIsEditMode(false);
 
-    // لو دخلنا من QR مثل: /p/H-2024-1168
-    if (path.startsWith('/p/')) {
-      const idFromUrl = path.replace('/p/', '');
-
-      const savedProfile = localStorage.getItem('nuskcare_profile');
-      if (savedProfile) {
-        const parsed: PilgrimProfile = JSON.parse(savedProfile);
-
-        if (parsed.id === idFromUrl) {
-          setProfile(parsed);
-          setIsAuthenticated(true); // دخول مباشر للطوارئ
-        }
-      }
-    }
-  }, []);
-
-  const saveProfile = (updatedProfile: PilgrimProfile) => {
-    setProfile(updatedProfile);
-    localStorage.setItem('nuskcare_profile', JSON.stringify(updatedProfile));
-    setIsEditMode(false);
-  };
-
-  const handleShareLocation = async () => {
-  if (!('geolocation' in navigator)) return;
-
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      const { latitude, longitude } = pos.coords;
-
-      const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-      const shareUrl = buildShareUrl(profile);
-{showQr && (
-  <QrModal
-    shareUrl={shareUrl}
-    onClose={() => setShowQr(false)}
-    t={t}
-    isRtl={isRtl}
-  />
-)}
-      // ✅ إذا الجهاز يدعم مشاركة النظام
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: t.title,
-            text: `موقع الحاج الآن: ${profile.fullName}\n\nGoogle Maps: ${mapsUrl}\n\nالملف الطبي: ${shareUrl}`,
-            url: shareUrl, // بعض الأجهزة تضيفه كرابط رئيسي
-          });
-          return;
-        } catch (e) {
-          console.log('Share canceled or failed', e);
-        }
-      }
-
-      // ✅ fallback: نسخ للClipboard
-      const msg = `موقع الحاج الآن: ${profile.fullName}\nGoogle Maps: ${mapsUrl}\nالملف الطبي: ${shareUrl}`;
-      try {
-        await navigator.clipboard.writeText(msg);
-        setShowLocationAlert(true);
-        setTimeout(() => setShowLocationAlert(false), 3000);
-      } catch {
-        // آخر حل: افتح خرائط مباشرة
-        window.open(mapsUrl, '_blank');
-      }
-    },
-    (err) => {
-      console.log('Geolocation error', err);
-    },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-  );
+  try {
+    await saveProfileToCloud(updatedProfile);
+  } catch (e) {
+    console.error('Failed to save profile to cloud', e);
+  }
 };
 
+
+  const handleShareLocation = async () => {
+    if (!('geolocation' in navigator)) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+
+        const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+        const shareUrl = buildShareUrl(profile);
+
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: t.title,
+              text: `موقع الحاج الآن: ${profile.fullName}\n\nGoogle Maps: ${mapsUrl}\n\nالملف الطبي: ${shareUrl}`,
+              url: shareUrl,
+            });
+            return;
+          } catch (e) {
+            console.log('Share canceled or failed', e);
+          }
+        }
+
+        const msg = `موقع الحاج الآن: ${profile.fullName}\nGoogle Maps: ${mapsUrl}\nالملف الطبي: ${shareUrl}`;
+        try {
+          await navigator.clipboard.writeText(msg);
+          setShowLocationAlert(true);
+          setTimeout(() => setShowLocationAlert(false), 3000);
+        } catch {
+          window.open(mapsUrl, '_blank');
+        }
+      },
+      (err) => {
+        console.log('Geolocation error', err);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
+
   const handleNativeShare = async () => {
-    // ✅ share the CURRENT pilgrim profile link (not the general site)
     const shareUrl = buildShareUrl(profile);
 
     if (navigator.share) {
@@ -202,22 +199,22 @@ const App: React.FC = () => {
         console.log('Error sharing:', err);
       }
     } else {
-      // fallback: افتح QR (أنت أصلاً تستخدمه)
       setShowQr(true);
     }
   };
 
-  // ✅ اتصال الحملة
   const handleEmergencyCall = () => {
     if (!profile.emergencyPhone) return;
     window.location.href = `tel:${profile.emergencyPhone}`;
   };
 
-  // ✅ اتصال الهلال الأحمر
   const handleRedCrescentCall = () => {
     if (!profile.redCrescentPhone) return;
     window.location.href = `tel:${profile.redCrescentPhone}`;
   };
+
+  // ✅ رابط QR القصير (بدون d)
+  const qrShareUrl = buildQrUrl(profile);
 
   return (
     <div className={`min-h-screen bg-slate-50 transition-all ${isRtl ? 'rtl' : ''}`}>
@@ -306,7 +303,6 @@ const App: React.FC = () => {
       {/* Floating Action Buttons */}
       {isAuthenticated && !isEditMode && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-gray-100 p-4 shadow-2xl z-40">
-          {/* ✅ الاقتراح: 3 أزرار واضحة (موقع / حملة / هلال) */}
           <div className="max-w-2xl mx-auto grid grid-cols-3 gap-3">
             <button
               onClick={handleShareLocation}
@@ -331,25 +327,26 @@ const App: React.FC = () => {
             </button>
 
             <button
-  type="button"
-  onClick={handleRedCrescentCall}
-  className="flex items-center justify-center gap-2 bg-[#D61F26] text-white py-4 rounded-2xl font-bold text-sm hover:bg-[#B8181E] active:scale-95 transition-all shadow-xl shadow-red-200"
-  title="الهلال الأحمر"
->
-  <img
-    src={redCrescentLogo}
-    alt="Saudi Red Crescent"
-    className="h-5 w-5 object-contain"
-  />
-  الهلال
-</button>
-
+              type="button"
+              onClick={handleRedCrescentCall}
+              className="flex items-center justify-center gap-2 bg-[#D61F26] text-white py-4 rounded-2xl font-bold text-sm hover:bg-[#B8181E] active:scale-95 transition-all shadow-xl shadow-red-200"
+              title="الهلال الأحمر"
+            >
+              <img src={redCrescentLogo} alt="Saudi Red Crescent" className="h-5 w-5 object-contain" />
+              الهلال
+            </button>
           </div>
         </div>
       )}
 
+      {/* ✅ QR Modal: لاحظ هنا نمرر shareUrl (القصير) */}
       {showQr && (
-        <QrModal profileId={profile.id} onClose={() => setShowQr(false)} t={t} isRtl={isRtl} />
+        <QrModal
+          shareUrl={qrShareUrl}
+          onClose={() => setShowQr(false)}
+          t={t}
+          isRtl={isRtl}
+        />
       )}
 
       {showLocationAlert && (
