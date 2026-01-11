@@ -181,44 +181,55 @@ const buildSmartShareUrl = async (p: PilgrimProfile) => {
   };
 
   const handleShareLocation = async () => {
-    if (!('geolocation' in navigator)) return;
+  if (!('geolocation' in navigator)) return;
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude, longitude } = pos.coords;
 
-        const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-const shareUrl = await buildSmartShareUrl(profile);
+      const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
 
+      // 1) تأكد البروفايل محفوظ بالكلاود عشان الرابط القصير يفتح نفس البروفايل بأي جهاز
+      await ensureCloudSync(profile);
 
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: t.title,
-              text: `موقع الحاج الآن: ${profile.fullName}\n\nGoogle Maps: ${mapsUrl}\n\nالملف الطبي: ${shareUrl}`,
-              url: shareUrl,
-            });
-            return;
-          } catch (e) {
-            console.log('Share canceled or failed', e);
-          }
-        }
+      // 2) رابط قصير للبروفايل
+      const shareUrl = buildQrUrl(profile);
 
-        const msg = `موقع الحاج الآن: ${profile.fullName}\nGoogle Maps: ${mapsUrl}\nالملف الطبي: ${shareUrl}`;
+      const text =
+        `موقع الحاج الآن: ${profile.fullName}\n\n` +
+        `Google Maps:\n${mapsUrl}\n\n` +
+        `الملف الطبي:\n${shareUrl}`;
+
+      // ✅ مشاركة النظام
+      if (navigator.share) {
         try {
-          await navigator.clipboard.writeText(msg);
-          setShowLocationAlert(true);
-          setTimeout(() => setShowLocationAlert(false), 3000);
-        } catch {
-          window.open(mapsUrl, '_blank');
+          await navigator.share({
+            title: t.title,
+            text,
+            // اختار واحد:
+            // url: mapsUrl,    // لو تبغى الضغط يفتح الخرايط مباشرة
+            url: mapsUrl,     // لو تبغى الضغط يفتح البروفايل (والخرايط موجودة بالنص)
+          });
+          return;
+        } catch (e) {
+          console.log('Share canceled or failed', e);
         }
-      },
-      (err) => {
-        console.log('Geolocation error', err);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  };
+      }
+
+      // ✅ fallback: نسخ
+      try {
+        await navigator.clipboard.writeText(text);
+        setShowLocationAlert(true);
+        setTimeout(() => setShowLocationAlert(false), 3000);
+      } catch {
+        window.open(mapsUrl, '_blank');
+      }
+    },
+    (err) => console.log('Geolocation error', err),
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+};
+
 
 const handleNativeShare = async () => {
   // ✅ رابط ذكي
