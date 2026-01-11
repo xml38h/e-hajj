@@ -36,19 +36,18 @@ const App: React.FC = () => {
     return JSON.parse(json);
   };
 
-  // ✅ هذا اللي كنت تستخدمه للشير (يشتغل على أي جهاز لأن فيه d)
+  // ✅ هذا اللي للشير (يشتغل على أي جهاز لأنه فيه d)
   const buildShareUrl = (p: PilgrimProfile) => {
     const origin = window.location.origin;
     const d = encodeProfileToUrlParam(p);
-    return `${origin}/p/${encodeURIComponent(p.id)}`;
+    return `${origin}/p/${encodeURIComponent(p.id)}?d=${d}`;
   };
 
   // ✅ هذا “للـ QR” فقط (رابط قصير وخفيف)
- const buildQrUrl = (p: PilgrimProfile) => {
-  const origin = window.location.origin;
-  return `${origin}/p/${encodeURIComponent(p.id)}`;
-};
-
+  const buildQrUrl = (p: PilgrimProfile) => {
+    const origin = window.location.origin;
+    return `${origin}/p/${encodeURIComponent(p.id)}`;
+  };
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -70,6 +69,11 @@ const App: React.FC = () => {
             localStorage.setItem('nuskcare_profile', JSON.stringify(finalProfile));
             setIsAuthenticated(true);
             setIsEditMode(false);
+
+            // (اختياري مفيد) خزّنه في الكلاود عشان الـ QR القصير يشتغل بعدين
+            try {
+              await saveProfileToCloud(finalProfile as any);
+            } catch {}
             return;
           } catch (e) {
             console.error('Failed to decode shared profile', e);
@@ -90,7 +94,7 @@ const App: React.FC = () => {
           console.error('Failed to load profile from cloud', e);
         }
 
-        // 3) fallback: لو ما لقيناه لا محلي ولا كلاود
+        // 3) fallback: localStorage
         const savedProfile = localStorage.getItem('nuskcare_profile');
         if (savedProfile) {
           const parsed: PilgrimProfile = JSON.parse(savedProfile);
@@ -101,19 +105,6 @@ const App: React.FC = () => {
             return;
           }
         }
-// ✅ محاولة تحميل من Firestore (عشان يشتغل على أي جهاز)
-try {
-  const cloudProfile = await loadProfileFromCloud(idFromUrl);
-  if (cloudProfile) {
-    setProfile(cloudProfile as any);
-    localStorage.setItem('nuskcare_profile', JSON.stringify(cloudProfile));
-    setIsAuthenticated(true);
-    setIsEditMode(false);
-    return;
-  }
-} catch (e) {
-  console.log('Cloud load failed', e);
-}
 
         // 4) Emergency view
         setProfile({
@@ -148,18 +139,16 @@ try {
   }, []);
 
   const saveProfile = async (updatedProfile: PilgrimProfile) => {
-  setProfile(updatedProfile);
-  localStorage.setItem('nuskcare_profile', JSON.stringify(updatedProfile));
-  setIsEditMode(false);
+    setProfile(updatedProfile);
+    localStorage.setItem('nuskcare_profile', JSON.stringify(updatedProfile));
+    setIsEditMode(false);
 
-  try {
-    await saveProfileToCloud(updatedProfile as any);
-  } catch (e) {
-    console.log('Cloud save failed', e);
-  }
-};
-
-
+    try {
+      await saveProfileToCloud(updatedProfile as any);
+    } catch (e) {
+      console.log('Cloud save failed', e);
+    }
+  };
 
   const handleShareLocation = async () => {
     if (!('geolocation' in navigator)) return;
@@ -347,25 +336,22 @@ try {
               className="flex items-center justify-center gap-2 bg-[#D61F26] text-white py-4 rounded-2xl font-bold text-sm hover:bg-[#B8181E] active:scale-95 transition-all shadow-xl shadow-red-200"
               title="الهلال الأحمر"
             >
-              <img src={redCrescentLogo} alt="Saudi Red Crescent" className="h-5 w-5 object-contain" />
+              <img src={redCrescentLogo} alt="Saudi Red Crescent" className="h-5 h-5 w-5 object-contain" />
               الهلال
             </button>
           </div>
         </div>
       )}
 
-      {/* ✅ QR Modal: لاحظ هنا نمرر shareUrl (القصير) */}
- {showQr && (
-  <QrModal
-    shareUrl={`${window.location.origin}/p/${encodeURIComponent(profile.id)}`}
-    onClose={() => setShowQr(false)}
-    t={t}
-    isRtl={isRtl}
-  />
-)}
-
-
-
+      {/* ✅ QR Modal: نمرر رابط QR القصير */}
+      {showQr && (
+        <QrModal
+          shareUrl={qrShareUrl}
+          onClose={() => setShowQr(false)}
+          t={t}
+          isRtl={isRtl}
+        />
+      )}
 
       {showLocationAlert && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-8 py-4 rounded-2xl text-sm font-bold z-[60] shadow-2xl flex items-center gap-3 animate-in slide-in-from-top duration-300">
