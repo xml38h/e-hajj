@@ -1,6 +1,83 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PilgrimProfile, TranslationSet, Language } from '../types';
 import { getEmergencyBrief } from '../services/geminiService';
+function formatDateTime(iso?: string) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
+function buildFallbackSummary(profile: any) {
+  const chronic = Array.isArray(profile?.medicalHistory?.chronicDiseases)
+    ? profile.medicalHistory.chronicDiseases
+    : [];
+
+  const meds = Array.isArray(profile?.medicationHistory)
+    ? profile.medicationHistory
+    : [];
+
+  const latestBP = (profile?.vitalSigns?.bloodPressureReadings || [])
+    .slice()
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.measuredAt).getTime() -
+        new Date(a.measuredAt).getTime()
+    )[0];
+
+  const latestSugar = (profile?.vitalSigns?.bloodSugarReadings || [])
+    .slice()
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.measuredAt).getTime() -
+        new Date(a.measuredAt).getTime()
+    )[0];
+
+  const lines: string[] = [];
+
+  // ✅ الأمراض المزمنة
+  if (chronic.length) {
+    lines.push(`- Chronic: ${chronic.join(", ")}`);
+  }
+
+  // ✅ الأدوية
+  const medsText = meds
+    .map(
+      (m: any) =>
+        `${m?.name || ""} ${m?.dosage || ""} (${m?.frequency || ""})`.trim()
+    )
+    .filter(Boolean)
+    .join(" | ");
+
+  if (medsText) {
+    lines.push(`- Meds: ${medsText}`);
+  }
+
+  // ✅ آخر قراءة ضغط مع التاريخ
+  if (latestBP) {
+    lines.push(
+      `- Latest BP: ${latestBP.systolic}/${latestBP.diastolic} mmHg (${formatDateTime(
+        latestBP.measuredAt
+      )})`
+    );
+  }
+
+  // ✅ آخر قراءة سكر مع التاريخ
+  if (latestSugar) {
+    lines.push(
+      `- Latest Sugar: ${latestSugar.value} ${latestSugar.unit} (${formatDateTime(
+        latestSugar.measuredAt
+      )})`
+    );
+  }
+
+  return lines.length
+    ? lines.join("\n")
+    : "- No medical summary available.";
+}
+
 
 interface ProfileViewProps {
   profile: PilgrimProfile;
@@ -37,7 +114,7 @@ const Chip: React.FC<{ text: string; tone?: 'normal' | 'danger' }> = ({ text, to
 );
 
 const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLang }) => {
-  const [aiSummary, setAiSummary] = useState<string>("");
+  const [aiSummary, setAiSummary] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
 
   // NEW: modal state for history
@@ -47,7 +124,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
     const fetchSummary = async () => {
       setLoadingAi(true);
       const summary = await getEmergencyBrief(profile, currentLang);
-      setAiSummary(summary);
+
+const cleaned = String(summary || "").trim();
+const looksGeneric =
+  /^here\s+is/i.test(cleaned) ||
+  /^emergency\s+summary/i.test(cleaned) ||
+  cleaned.length < 40;
+
+setAiSummary(looksGeneric ? buildFallbackSummary(profile) : cleaned);
+
       setLoadingAi(false);
     };
     fetchSummary();
@@ -227,13 +312,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
           </svg>
           <span className="font-bold text-amber-800 text-sm">Emergency Summary (AI)</span>
         </div>
-        <p className="text-sm text-amber-900 leading-relaxed italic">
+
+        <div className="text-sm text-amber-900 leading-relaxed italic whitespace-pre-line">
           {loadingAi ? 'Analyzing medical data...' : aiSummary}
-        </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* ✅ Demographics: DOB + Age تحت الهوية */}
+        {/* ✅ Demographics: Nationality تحت الهوية + DOB/Age بعدها */}
         <Section
           title={t.personalData}
           icon={
@@ -247,17 +333,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
             </svg>
           }
         >
-         <DataRow label="Name" value={profile.fullName} />
-<DataRow label="ID / Passport" value={profile.passportId} />
-<DataRow label="Nationality" value={profile.nationality} />
+          <DataRow label="Name" value={profile.fullName} />
+          <DataRow label="ID / Passport" value={profile.passportId} />
+          <DataRow label="Nationality" value={profile.nationality} />
 
-<DataRow label="Date of Birth" value={profile.dateOfBirth ? profile.dateOfBirth : '—'} />
-<DataRow label="Age" value={profile.ageYears != null ? `${profile.ageYears} years` : '—'} />
+          <DataRow label="Date of Birth" value={profile.dateOfBirth ? profile.dateOfBirth : '—'} />
+          <DataRow label="Age" value={profile.ageYears != null ? `${profile.ageYears} years` : '—'} />
 
-<DataRow label="Height" value={profile.heightCm != null ? `${profile.heightCm} cm` : '—'} />
-<DataRow label="Weight" value={profile.weightKg != null ? `${profile.weightKg} kg` : '—'} />
-<DataRow label="BMI" value={profile.bmi != null ? String(profile.bmi) : '—'} />
-</Section>
+          <DataRow label="Height" value={profile.heightCm != null ? `${profile.heightCm} cm` : '—'} />
+          <DataRow label="Weight" value={profile.weightKg != null ? `${profile.weightKg} kg` : '—'} />
+          <DataRow label="BMI" value={profile.bmi != null ? String(profile.bmi) : '—'} />
+        </Section>
 
         {/* ✅ Vital: الضغط جنب السكر */}
         <Section
@@ -273,13 +359,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
             </svg>
           }
         >
-          {/* ✅ صف 1: Blood Type + فراغ (عشان يبقى كرت واحد فوق) */}
+          {/* صف 1: Blood Type + spacer */}
           <div className="grid grid-cols-2 gap-4">
-            <DataRow label={t.bloodType} value={profile.vitalSigns.bloodType}  />
-            <div /> {/* spacer */}
+            <DataRow label={t.bloodType} value={profile.vitalSigns.bloodType} />
+            <div />
           </div>
 
-          {/* ✅ صف 2: Pressure + Sugar جنب بعض */}
+          {/* صف 2: BP + Sugar جنب بعض */}
           <div className="grid grid-cols-2 gap-4 mt-3">
             <button
               type="button"
@@ -314,23 +400,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
         <Section
           title={t.medicalHistory}
           icon={
-           <svg
-      className="w-5 h-5 text-emerald-600"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M9 5h6a2 2 0 012 2v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7a2 2 0 012-2z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M9 3h6v4H9z" />
+            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M9 5h6a2 2 0 012 2v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7a2 2 0 012-2z"
+              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3h6v4H9z" />
             </svg>
           }
         >
@@ -342,18 +419,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
         <Section
           title={t.medications}
           icon={
-             <svg
-      className="w-5 h-5 text-emerald-600"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-    d="M10.9 6.5l7 7m-8.25-5.75l5.5-4.5a4 4 0 015.657 8.667l-5.5 5.5a4 4 0 01-5.657-9.157z"
-     />
+            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.9 6.5l7 7m-8.25-5.75l5.5-4.5a4 4 0 015.657 8.667l-5.5 5.5a4 4 0 01-5.657-9.157z"
+              />
             </svg>
           }
         >
@@ -379,7 +450,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, t, isRtl, currentLan
           <p className="text-gray-700 font-medium">{profile.emergencyContactName}</p>
 
           <div>
-            <p className="text-[11px] text-gray-500 font-bold">رقم الحملة</p>
+            <p className="text-[11px] text-gray-500 font-bold">رقم هاتف الحملة</p>
             <p className="text-emerald-700 text-lg font-extrabold">{profile.emergencyPhone}</p>
           </div>
 

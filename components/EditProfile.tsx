@@ -207,6 +207,20 @@ const EditProfile: React.FC<EditProfileProps> = ({ profile, onSave, onCancel, t,
     }
 
     updatedProfile.vitalSigns.lastUpdated = new Date().toISOString();
+// ✅ Normalize readings: ensure measuredAt exists (fix old data)
+const nowIso = new Date().toISOString();
+
+updatedProfile.vitalSigns.bloodPressureReadings =
+  (updatedProfile.vitalSigns.bloodPressureReadings ?? []).map((r: any) => ({
+    ...r,
+    measuredAt: r?.measuredAt || nowIso,
+  }));
+
+updatedProfile.vitalSigns.bloodSugarReadings =
+  (updatedProfile.vitalSigns.bloodSugarReadings ?? []).map((r: any) => ({
+    ...r,
+    measuredAt: r?.measuredAt || nowIso,
+  }));
 
     onSave(updatedProfile);
   };

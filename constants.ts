@@ -3,7 +3,7 @@ import { Language, TranslationSet, PilgrimProfile } from './types';
 
 export const TRANSLATIONS: Record<Language, TranslationSet> = {
   [Language.AR]: {
-title: " Hajj Care",
+title: "  Hajj Care",
     personalData: "البيانات الشخصية",
     medicalHistory: "التاريخ الطبي",
     medications: "التاريخ الدوائي",
@@ -114,7 +114,7 @@ export const DEFAULT_PROFILE: PilgrimProfile = {
   nationality: "سعودي",
   nativeLanguage: "العربية",
   passportId: "123456789",
-  emergencyContactName: "رئيس الحملة",
+  emergencyContactName:"اسم الحملة ",
   emergencyPhone: "0500000000",
   securityCode: "1234",
   medicalHistory: {
